@@ -727,7 +727,7 @@
             if(!currentViewedTx) return showToast("Tidak ada data pesanan yang dipilih!", "error");
 
             let nama = currentViewedTx.nama;
-            let wa = currentViewedTx.wa;
+            let wa = String(currentViewedTx.wa); // Pastikan wa dikonversi menjadi string
             let totalHarga = currentViewedTx.totalHarga.toLocaleString('id-ID');
             
             // Format nomor WA untuk Indonesia (62)
