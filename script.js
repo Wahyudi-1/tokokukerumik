@@ -1,5 +1,5 @@
 // --- KONFIGURASI URL APPS SCRIPT ---
-// PENTING: Ganti URL di bawah ini dengan URL Web App (Exec) terbaru Anda!
+// URL ini sudah diisi sesuai permintaan Anda.
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzX_vVW7xQFa1PkDqSPl9UFgUEZMMiisd12q8NNVDSEhdeXBN90y9vkDb0D49jwuhsxyQ/exec';
 
 // --- STATE APLIKASI ---
@@ -19,7 +19,7 @@ window.onload = () => {
 // --- SISTEM NOTIFIKASI TOAST ---
 function showToast(message, type = 'success') {
     const container = document.getElementById('toast-container');
-    if (!container) return; // Safety check
+    if (!container) return; 
 
     const toast = document.createElement('div');
     const bgColor = type === 'success' ? 'bg-green-600' : (type === 'error' ? 'bg-red-600' : (type === 'info' ? 'bg-yellow-500' : 'bg-blue-600'));
@@ -33,13 +33,11 @@ function showToast(message, type = 'success') {
     
     container.appendChild(toast);
     
-    // Trigger animation
     requestAnimationFrame(() => {
         toast.classList.remove('toast-enter');
         toast.classList.add('toast-enter-active');
     });
     
-    // Remove after 4 seconds
     setTimeout(() => {
         toast.classList.remove('toast-enter-active');
         toast.classList.add('toast-exit-active');
@@ -73,63 +71,68 @@ function switchTab(pageId) {
     }
 }
 
-// --- KOMUNIKASI DATABASE (INTI PERBAIKAN) ---
+// --- KOMUNIKASI DATABASE (DENGAN MODE DEBUGGING) ---
 async function loadDatabase() {
     toggleLoading(true, 'Mengunduh Data Database...');
     try {
-        // Tambahkan timestamp (?v=...) untuk mencegah browser menggunakan cache lama
         const urlWithCacheBuster = SCRIPT_URL + '?v=' + new Date().getTime();
         
         const response = await fetch(urlWithCacheBuster);
         
         if(!response.ok) {
-            throw new Error(`HTTP Error: ${response.status}`);
+            throw new Error(`Koneksi Gagal: ${response.status} ${response.statusText}`);
         }
         
-        const data = await response.json();
+        const rawText = await response.text();
+
+        if (!rawText || rawText.trim() === "") {
+            throw new Error("Server mengembalikan respon kosong. Pastikan Anda melakukan 'New Deployment' dan tidak ada error di script.");
+        }
+
+        let data;
+        try {
+            data = JSON.parse(rawText);
+        } catch (jsonError) {
+            if (rawText.includes("<!DOCTYPE html>")) {
+                throw new Error("Terblokir CORS/Otentikasi. Pastikan akses Deployment adalah 'Anyone'.");
+            }
+            throw new Error("Format data dari server bukan JSON yang valid. Cek Console untuk detail.");
+        }
         
-        // Cek jika Backend mengirim sinyal Error
         if (data.status === 'error') {
             throw new Error(data.message || "Terjadi kesalahan pada Server Apps Script.");
         }
         
-        // Parsing Data Barang
-        // Backend baru mengirim struktur: { barang: [], pesanan: [] }
-        // Backend lama mungkin mengirim array langsung: [...]
         if (Array.isArray(data)) {
-            databaseBarang = data; // Fallback untuk backend lama
+            databaseBarang = data;
         } else {
             databaseBarang = data.barang || [];
             riwayatTransaksi = data.pesanan || [];
         }
         
-        // Validasi Data Kosong
         if (databaseBarang.length === 0) {
-            showToast("Koneksi Berhasil, tapi Data Barang Kosong.", "info");
+            showToast("Koneksi Berhasil, tapi Data Barang di Spreadsheet Kosong.", "info");
         } else {
             showToast(`Berhasil memuat ${databaseBarang.length} data barang.`);
         }
 
-        // Update UI Dropdown
-        // Filter Boolean untuk membuang baris kosong/undefined
         jenisUnik = [...new Set(databaseBarang.map(item => item.jenis).filter(Boolean))];
-        
         updateDropdownJenis();
         updateDropdownNamaSemua();
         updateDropdownRiwayat();
         
-        // Tampilkan transaksi terakhir jika ada
         if(riwayatTransaksi.length > 0) {
             tampilkanStruk(riwayatTransaksi[0]);
         }
         
     } catch (error) {
         console.error("Load DB Error:", error);
-        showToast("Gagal Memuat Data: " + error.message, "error");
+        showToast(error.message, "error");
     } finally {
         toggleLoading(false);
     }
 }
+
 
 // --- HALAMAN 1: INPUT BARANG ---
 function submitBarang(e) {
@@ -164,13 +167,13 @@ function submitBarang(e) {
     formData.append('ukuran', ukuranInput);
 
     fetch(SCRIPT_URL, { method: 'POST', body: formData })
-        .then(res => res.text()) // POST biasanya mengembalikan text sederhana
+        .then(res => res.text())
         .then(text => {
-            if (text.includes("Error")) throw new Error(text);
+            if (text.toLowerCase().includes("error")) throw new Error(text);
             
             showToast(existingItem ? "Harga barang berhasil diperbarui!" : "Barang berhasil ditambahkan!");
             document.getElementById('form-barang').reset();
-            loadDatabase(); // Reload data untuk update dropdown
+            loadDatabase();
         })
         .catch(err => {
             showToast("Gagal menyimpan: " + err.message, "error");
@@ -214,7 +217,6 @@ function updateDropdownNamaSemua(filterJenis = "") {
         items = databaseBarang.filter(item => item.jenis === filterJenis);
     }
     
-    // Gunakan Set untuk nama unik
     const namaUnik = [...new Set(items.map(item => item.nama).filter(Boolean))];
     
     select.innerHTML = '<option value="">-- Pilih Barang --</option>' + 
@@ -246,7 +248,6 @@ function syncJenisBerdasarkanNama() {
         selectUkuran.innerHTML = variasiBarang.map(item => `<option value="${item.ukuran}">${item.ukuran}</option>`).join('');
         
         const selectJenis = document.getElementById('trans-jenis');
-        // Auto select jenis jika belum dipilih
         if (variasiBarang.length > 0 && selectJenis.value !== variasiBarang[0].jenis) {
             selectJenis.value = variasiBarang[0].jenis;
         }
@@ -397,7 +398,6 @@ function prosesBayar() {
         .then(text => {
             toggleLoading(false);
             
-            // Cek error dari text response
             if (text.includes("ID tidak ditemukan") || (actionType === 'editTransaksi' && !text.includes("diperbarui"))) {
                 let errorMsg = text.includes("ID tidak ditemukan") 
                     ? "Gagal: Pesanan lama ini belum memiliki ID di Spreadsheet." 
@@ -407,7 +407,6 @@ function prosesBayar() {
                 return;
             }
 
-            // Update state lokal
             if(editingTxId) {
                 const index = riwayatTransaksi.findIndex(t => t.id === editingTxId);
                 if(index > -1) riwayatTransaksi[index] = currentTx;
@@ -485,7 +484,6 @@ function kirimWhatsApp() {
     let wa = String(currentViewedTx.wa); 
     let totalHarga = currentViewedTx.totalHarga.toLocaleString('id-ID');
     
-    // Format nomor WA untuk Indonesia (62)
     wa = wa.replace(/[^0-9]/g, ''); 
     
     if (wa.startsWith('0')) {
@@ -494,7 +492,6 @@ function kirimWhatsApp() {
         wa = '62' + wa;
     }
 
-    // --- TEMPLATE PESAN WA ---
     let pesan = `Halo *${nama}*,\nBerikut adalah rincian pesanan Anda dari toko kami:\n\n`;
     currentViewedTx.items.forEach((item, index) => {
         pesan += `${index+1}. ${item.nama} (Uk: ${item.ukuran})\n   ${item.jml} x Rp ${item.harga.toLocaleString('id-ID')} = Rp ${item.subtotal.toLocaleString('id-ID')}\n`;
@@ -574,10 +571,4 @@ function resetSemua() {
     renderTabelKeranjang();
     kembaliKePelanggan();
     switchTab('page-transaksi');
-}
-
-function forceUpdateAplikasi() {
-    toggleLoading(true, 'Mengecek pembaruan sistem...');
-    const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?v=' + new Date().getTime();
-    window.location.replace(newUrl);
 }
