@@ -1,6 +1,6 @@
 // --- KONFIGURASI URL APPS SCRIPT ---
-// GANTI URL DI BAWAH INI DENGAN URL DEPLOYMENT APPS SCRIPT ANDA
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyqLsVIPvnv7DL1FxBUcYIyx5oSgS3A1PTFauU_zqUWrdta2XxdAqUSjvALam_m50sQHw/exec';
+// PENTING: Ganti URL di bawah ini dengan URL Web App (Exec) terbaru Anda!
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzX_vVW7xQFa1PkDqSPl9UFgUEZMMiisd12q8NNVDSEhdeXBN90y9vkDb0D49jwuhsxyQ/exec';
 
 // --- STATE APLIKASI ---
 let databaseBarang = [];
@@ -19,31 +19,39 @@ window.onload = () => {
 // --- SISTEM NOTIFIKASI TOAST ---
 function showToast(message, type = 'success') {
     const container = document.getElementById('toast-container');
+    if (!container) return; // Safety check
+
     const toast = document.createElement('div');
     const bgColor = type === 'success' ? 'bg-green-600' : (type === 'error' ? 'bg-red-600' : (type === 'info' ? 'bg-yellow-500' : 'bg-blue-600'));
     
     toast.className = `${bgColor} text-white px-6 py-3 rounded-lg shadow-lg font-medium flex items-center gap-2 toast-enter`;
     toast.innerHTML = `
         ${type === 'success' ? '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>' : ''}
-        ${message}
+        ${type === 'error' ? '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>' : ''}
+        <span>${message}</span>
     `;
     
     container.appendChild(toast);
     
     // Trigger animation
-    setTimeout(() => { toast.classList.remove('toast-enter'); toast.classList.add('toast-enter-active'); }, 10);
+    requestAnimationFrame(() => {
+        toast.classList.remove('toast-enter');
+        toast.classList.add('toast-enter-active');
+    });
     
-    // Remove after 3 seconds
+    // Remove after 4 seconds
     setTimeout(() => {
         toast.classList.remove('toast-enter-active');
         toast.classList.add('toast-exit-active');
         setTimeout(() => toast.remove(), 300);
-    }, 3000);
+    }, 4000);
 }
 
 function toggleLoading(show, text = 'Memuat Data...') {
     const overlay = document.getElementById('loading-overlay');
-    document.getElementById('loading-text').innerText = text;
+    const textEl = document.getElementById('loading-text');
+    if (textEl) textEl.innerText = text;
+    
     if(show) overlay.classList.remove('hidden');
     else overlay.classList.add('hidden');
 }
@@ -51,11 +59,13 @@ function toggleLoading(show, text = 'Memuat Data...') {
 // --- NAVIGASI TAB ---
 function switchTab(pageId) {
     document.querySelectorAll('.page-section').forEach(p => p.classList.add('hidden'));
-    document.getElementById(pageId).classList.remove('hidden');
+    const target = document.getElementById(pageId);
+    if (target) target.classList.remove('hidden');
 
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.className = "tab-btn px-4 py-2 rounded-md font-semibold text-gray-600 hover:bg-gray-100 transition whitespace-nowrap";
     });
+    
     const activeTabId = pageId.replace('page-', 'tab-');
     const activeTab = document.getElementById(activeTabId);
     if(activeTab) {
@@ -63,33 +73,59 @@ function switchTab(pageId) {
     }
 }
 
-// --- KOMUNIKASI DATABASE ---
+// --- KOMUNIKASI DATABASE (INTI PERBAIKAN) ---
 async function loadDatabase() {
     toggleLoading(true, 'Mengunduh Data Database...');
     try {
-        const response = await fetch(SCRIPT_URL);
-        if(!response.ok) throw new Error("Gagal load data");
+        // Tambahkan timestamp (?v=...) untuk mencegah browser menggunakan cache lama
+        const urlWithCacheBuster = SCRIPT_URL + '?v=' + new Date().getTime();
+        
+        const response = await fetch(urlWithCacheBuster);
+        
+        if(!response.ok) {
+            throw new Error(`HTTP Error: ${response.status}`);
+        }
+        
         const data = await response.json();
         
-        if(Array.isArray(data)) {
-            databaseBarang = data;
+        // Cek jika Backend mengirim sinyal Error
+        if (data.status === 'error') {
+            throw new Error(data.message || "Terjadi kesalahan pada Server Apps Script.");
+        }
+        
+        // Parsing Data Barang
+        // Backend baru mengirim struktur: { barang: [], pesanan: [] }
+        // Backend lama mungkin mengirim array langsung: [...]
+        if (Array.isArray(data)) {
+            databaseBarang = data; // Fallback untuk backend lama
         } else {
             databaseBarang = data.barang || [];
             riwayatTransaksi = data.pesanan || [];
         }
         
-        jenisUnik = [...new Set(databaseBarang.map(item => item.jenis))];
+        // Validasi Data Kosong
+        if (databaseBarang.length === 0) {
+            showToast("Koneksi Berhasil, tapi Data Barang Kosong.", "info");
+        } else {
+            showToast(`Berhasil memuat ${databaseBarang.length} data barang.`);
+        }
+
+        // Update UI Dropdown
+        // Filter Boolean untuk membuang baris kosong/undefined
+        jenisUnik = [...new Set(databaseBarang.map(item => item.jenis).filter(Boolean))];
+        
         updateDropdownJenis();
         updateDropdownNamaSemua();
-        
         updateDropdownRiwayat();
+        
+        // Tampilkan transaksi terakhir jika ada
         if(riwayatTransaksi.length > 0) {
             tampilkanStruk(riwayatTransaksi[0]);
         }
         
     } catch (error) {
-        console.error("Error:", error);
-        showToast("Gagal memuat data dari server.", "error");
+        console.error("Load DB Error:", error);
+        showToast("Gagal Memuat Data: " + error.message, "error");
     } finally {
         toggleLoading(false);
     }
@@ -114,10 +150,7 @@ function submitBarang(e) {
 
     if (existingItem) {
         const isConfirmed = confirm(`Data barang sudah tersedia (Harga saat ini: Rp ${existingItem.harga.toLocaleString('id-ID')}).\nApakah Anda ingin memperbarui harga barang menjadi Rp ${parseInt(hargaInput).toLocaleString('id-ID')}?`);
-        
-        if (!isConfirmed) {
-            return; 
-        }
+        if (!isConfirmed) return; 
         actionType = 'editBarang'; 
     }
 
@@ -131,14 +164,16 @@ function submitBarang(e) {
     formData.append('ukuran', ukuranInput);
 
     fetch(SCRIPT_URL, { method: 'POST', body: formData })
-        .then(res => res.text())
+        .then(res => res.text()) // POST biasanya mengembalikan text sederhana
         .then(text => {
+            if (text.includes("Error")) throw new Error(text);
+            
             showToast(existingItem ? "Harga barang berhasil diperbarui!" : "Barang berhasil ditambahkan!");
             document.getElementById('form-barang').reset();
-            loadDatabase(); 
+            loadDatabase(); // Reload data untuk update dropdown
         })
         .catch(err => {
-            showToast("Gagal menyimpan. Cek koneksi.", "error");
+            showToast("Gagal menyimpan: " + err.message, "error");
             toggleLoading(false);
         });
 }
@@ -164,18 +199,23 @@ function kembaliKePelanggan() {
 
 function updateDropdownJenis() {
     const select = document.getElementById('trans-jenis');
+    if (!select) return;
+    
     select.innerHTML = '<option value="">-- Semua Jenis --</option>' + 
         jenisUnik.map(j => `<option value="${j}">${j}</option>`).join('');
 }
 
 function updateDropdownNamaSemua(filterJenis = "") {
     const select = document.getElementById('trans-nama');
+    if (!select) return;
+
     let items = databaseBarang;
     if (filterJenis) {
         items = databaseBarang.filter(item => item.jenis === filterJenis);
     }
     
-    const namaUnik = [...new Set(items.map(item => item.nama))];
+    // Gunakan Set untuk nama unik
+    const namaUnik = [...new Set(items.map(item => item.nama).filter(Boolean))];
     
     select.innerHTML = '<option value="">-- Pilih Barang --</option>' + 
         namaUnik.map(nama => `<option value="${nama}">${nama}</option>`).join('');
@@ -206,6 +246,7 @@ function syncJenisBerdasarkanNama() {
         selectUkuran.innerHTML = variasiBarang.map(item => `<option value="${item.ukuran}">${item.ukuran}</option>`).join('');
         
         const selectJenis = document.getElementById('trans-jenis');
+        // Auto select jenis jika belum dipilih
         if (variasiBarang.length > 0 && selectJenis.value !== variasiBarang[0].jenis) {
             selectJenis.value = variasiBarang[0].jenis;
         }
@@ -249,7 +290,7 @@ function tambahkanKeKeranjang() {
     if(!nama) return showToast("Silakan pilih nama barang terlebih dahulu!", "error");
 
     const itemOriginal = databaseBarang.find(i => i.nama === nama && i.ukuran === ukuran);
-    if(!itemOriginal) return;
+    if(!itemOriginal) return showToast("Data barang tidak valid.", "error");
 
     const harga = parseInt(itemOriginal.harga);
     const jml = parseInt(document.getElementById('trans-jumlah').value) || 1;
@@ -342,14 +383,6 @@ function prosesBayar() {
         totalHarga: totalHarga
     };
 
-    if(editingTxId) {
-        const index = riwayatTransaksi.findIndex(t => t.id === editingTxId);
-        if(index > -1) riwayatTransaksi[index] = currentTx;
-    } else {
-        riwayatTransaksi.unshift(currentTx);
-    }
-    updateDropdownRiwayat();
-
     const formData = new URLSearchParams();
     formData.append('action', actionType);
     formData.append('id', txId);
@@ -364,15 +397,24 @@ function prosesBayar() {
         .then(text => {
             toggleLoading(false);
             
-            // --- VALIDASI RESPON DARI SERVER ---
+            // Cek error dari text response
             if (text.includes("ID tidak ditemukan") || (actionType === 'editTransaksi' && !text.includes("diperbarui"))) {
                 let errorMsg = text.includes("ID tidak ditemukan") 
                     ? "Gagal: Pesanan lama ini belum memiliki ID di Spreadsheet." 
-                    : "Gagal: Anda belum men-Deploy Apps Script ke Versi Baru!";
+                    : "Gagal: Respon server tidak valid.";
                 showToast(errorMsg, "error");
                 loadDatabase(); 
                 return;
             }
+
+            // Update state lokal
+            if(editingTxId) {
+                const index = riwayatTransaksi.findIndex(t => t.id === editingTxId);
+                if(index > -1) riwayatTransaksi[index] = currentTx;
+            } else {
+                riwayatTransaksi.unshift(currentTx);
+            }
+            updateDropdownRiwayat();
 
             showToast(editingTxId ? "Pesanan Berhasil Diperbarui!" : "Transaksi Berhasil Disimpan!");
             tampilkanStruk(currentTx);
@@ -381,7 +423,7 @@ function prosesBayar() {
         })
         .catch(err => {
             toggleLoading(false);
-            showToast("Gagal menyimpan transaksi. Cek koneksi internet.", "error");
+            showToast("Gagal menyimpan transaksi: " + err.message, "error");
         });
 }
 
@@ -519,7 +561,7 @@ function hapusPesanan() {
         })
         .catch(err => {
             toggleLoading(false);
-            showToast("Gagal menghapus pesanan. Cek koneksi internet.", "error");
+            showToast("Gagal menghapus pesanan: " + err.message, "error");
         });
 }
 
