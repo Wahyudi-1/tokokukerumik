@@ -501,12 +501,12 @@ function kirimWhatsApp() {
     pesan += `==================\n\n`;
     pesan += `Pembayaran dapat dilakukan secara tunai atau transfer\n\n`;
     pesan += `Transfer dapat dilakukan melalui\n`;
-    pesan += `Seabank : 901355785479\n\n`;
+    pesan += `Seabank : 901355785479\n`;
     pesan += `atau\n`;
     pesan += `Shoppe pay/gopay : 081357432595`;
     pesan += `Atas nama : Ummu Hayatin\n\n`;
-    pesan += `*Pastikan konfirmasi dengan mengirimkan bukti pembayaran.\n\n`;
-    pesan += `Terima kasih banyak telah berbelanja! 🙏😊`;
+    pesan += `*Pastikan konfirmasi dengan mengirimkan bukti pembayaran.*\n\n`;
+    pesan += `Terima kasih banyak telah berbelanja, Semoga berkah! 🙏😊`;
 
     const url = `https://wa.me/${wa}?text=${encodeURIComponent(pesan)}`;
     window.open(url, '_blank');
