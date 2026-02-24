@@ -147,14 +147,20 @@
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Ukuran</label>
-                                <input type="text" id="trans-ukuran" readonly class="w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-700 cursor-not-allowed text-center">
+                                <select id="trans-ukuran" onchange="syncHargaBerdasarkanUkuran()" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
+                                    <option value="">-</option>
+                                </select>
                             </div>
                         </div>
 
                         <!-- Jumlah -->
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Jumlah Pesanan</label>
-                            <input type="number" id="trans-jumlah" value="1" min="1" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-center text-lg font-bold">
+                            <div class="flex items-center">
+                                <button type="button" onclick="ubahJumlah(-1)" class="px-5 py-2 bg-gray-200 border border-gray-300 rounded-l-lg hover:bg-gray-300 active:bg-gray-400 font-bold text-gray-700 transition">-</button>
+                                <input type="number" id="trans-jumlah" value="1" min="1" readonly class="w-full py-2 border-y border-gray-300 outline-none text-center text-lg font-bold bg-white focus:ring-0">
+                                <button type="button" onclick="ubahJumlah(1)" class="px-5 py-2 bg-gray-200 border border-gray-300 rounded-r-lg hover:bg-gray-300 active:bg-gray-400 font-bold text-gray-700 transition">+</button>
+                            </div>
                         </div>
 
                         <button onclick="tambahkanKeKeranjang()" class="w-full bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold py-3 px-4 rounded-lg transition border border-blue-300 flex justify-center items-center gap-2">
@@ -208,6 +214,14 @@
 
         <!-- HALAMAN 3: DATA PESANAN (STRUK) -->
         <section id="page-pesanan" class="page-section hidden">
+            <!-- Pilihan Riwayat Pelanggan -->
+            <div class="max-w-2xl mx-auto mb-6 no-print bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex items-center gap-4">
+                <label class="font-medium text-gray-700 whitespace-nowrap">Riwayat Pesanan:</label>
+                <select id="dropdown-riwayat" onchange="gantiRiwayat()" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                    <option value="">-- Belum ada riwayat --</option>
+                </select>
+            </div>
+
             <div id="area-struk" class="print-area bg-white p-8 rounded-xl shadow-md border border-gray-200 max-w-2xl mx-auto relative">
                 
                 <!-- Hiasan Pinggir Struk -->
@@ -283,6 +297,8 @@
         let databaseBarang = [];
         let keranjang = [];
         let jenisUnik = [];
+        let riwayatTransaksi = []; // Diubah: Sepenuhnya mengambil dari Spreadsheet, bukan localStorage
+        let currentViewedTx = null;
 
         // --- INISIALISASI ---
         window.onload = () => {
@@ -343,24 +359,34 @@
 
         // --- KOMUNIKASI DATABASE ---
         async function loadDatabase() {
-            toggleLoading(true, 'Mengunduh Database Barang...');
+            toggleLoading(true, 'Mengunduh Data Database...');
             try {
-                // Gunakan JSONP/no-cors fallback jika error CORS, tapi asumsikan exec mengembalikan JSON
                 const response = await fetch(SCRIPT_URL);
                 if(!response.ok) throw new Error("Gagal load data");
-                databaseBarang = await response.json();
+                const data = await response.json();
                 
-                // Ambil jenis unik untuk dropdown
+                // Menyesuaikan dengan format backend baru yang mengirim { barang: [], pesanan: [] }
+                if(Array.isArray(data)) {
+                    // Fallback jika backend belum diperbarui ke versi baru
+                    databaseBarang = data;
+                } else {
+                    databaseBarang = data.barang || [];
+                    riwayatTransaksi = data.pesanan || [];
+                }
+                
+                // Set Dropdown Jenis & Nama Barang
                 jenisUnik = [...new Set(databaseBarang.map(item => item.jenis))];
-                
                 updateDropdownJenis();
-                updateDropdownNamaSemua(); // Awal: tampilkan semua nama
+                updateDropdownNamaSemua();
+                
+                // Set Dropdown Riwayat Pesanan dari Spreadsheet
+                updateDropdownRiwayat();
+                if(riwayatTransaksi.length > 0) {
+                    tampilkanStruk(riwayatTransaksi[0]);
+                }
                 
             } catch (error) {
                 console.error("Error:", error);
-                // Jika error CORS karena ContentService, kita mungkin tidak bisa read json secara direct dari klien tanpa proper setup di AppScript.
-                // Notifikasi disembunyikan agar aplikasi tetap bisa dipakai dalam mode demonstrasi jika api mati
-                // showToast("Koneksi database bermasalah. Pastikan URL Apps Script benar.", "error");
             } finally {
                 toggleLoading(false);
             }
@@ -425,8 +451,11 @@
                 items = databaseBarang.filter(item => item.jenis === filterJenis);
             }
             
+            // Ambil daftar nama yang unik (agar tidak ada nama ganda di dropdown jika ukurannya berbeda-beda)
+            const namaUnik = [...new Set(items.map(item => item.nama))];
+            
             select.innerHTML = '<option value="">-- Pilih Barang --</option>' + 
-                items.map(item => `<option value="${item.nama}">${item.nama}</option>`).join('');
+                namaUnik.map(nama => `<option value="${nama}">${nama}</option>`).join('');
         }
 
         // TRIGGER 1: Jika Jenis dipilih dari dropdown (atau via panah)
@@ -450,44 +479,68 @@
         // TRIGGER 2: Jika Nama dipilih dari dropdown
         function syncJenisBerdasarkanNama() {
             const namaTerpilih = document.getElementById('trans-nama').value;
-            const item = databaseBarang.find(i => i.nama === namaTerpilih);
+            const selectUkuran = document.getElementById('trans-ukuran');
             
-            if (item) {
-                // Auto isi harga dan ukuran
-                document.getElementById('trans-harga').value = item.harga.toLocaleString('id-ID');
-                document.getElementById('trans-ukuran').value = item.ukuran;
+            if (namaTerpilih) {
+                // Cari semua variasi barang dengan nama tersebut (untuk mendapatkan daftar ukuran)
+                const variasiBarang = databaseBarang.filter(i => i.nama === namaTerpilih);
+                
+                // Isi Dropdown Ukuran sesuai ketersediaan di database
+                selectUkuran.innerHTML = variasiBarang.map(item => `<option value="${item.ukuran}">${item.ukuran}</option>`).join('');
                 
                 // SINKRONISASI KE JENIS: Ubah dropdown jenis secara otomatis
                 const selectJenis = document.getElementById('trans-jenis');
-                if (selectJenis.value !== item.jenis) {
-                    selectJenis.value = item.jenis;
-                    // Kita TIDAK memanggil syncNamaBerdasarkanJenis() di sini agar daftar nama tidak langsung terefresh jika tidak perlu, 
-                    // tapi jika ingin daftarnya tersaring jg:
-                    // updateDropdownNamaSemua(item.jenis); 
-                    // document.getElementById('trans-nama').value = item.nama; // kembalikan pilihan
+                if (variasiBarang.length > 0 && selectJenis.value !== variasiBarang[0].jenis) {
+                    selectJenis.value = variasiBarang[0].jenis;
                 }
+
+                // Otomatis sinkronkan harga berdasarkan ukuran pertama yang muncul di dropdown
+                syncHargaBerdasarkanUkuran();
             } else {
                 resetInputDetail();
             }
         }
 
+        // TRIGGER 3: Jika Ukuran diubah, update harga menyesuaikan variasi ukuran
+        function syncHargaBerdasarkanUkuran() {
+            const namaTerpilih = document.getElementById('trans-nama').value;
+            const ukuranTerpilih = document.getElementById('trans-ukuran').value;
+            
+            // Cari data spesifik berdasarkan nama DAN ukuran
+            const item = databaseBarang.find(i => i.nama === namaTerpilih && i.ukuran === ukuranTerpilih);
+            
+            if (item) {
+                document.getElementById('trans-harga').value = item.harga.toLocaleString('id-ID');
+            }
+        }
+
+        // Fungsi Tambah Kurang Jumlah
+        function ubahJumlah(delta) {
+            const input = document.getElementById('trans-jumlah');
+            let val = parseInt(input.value) || 1;
+            val += delta;
+            if (val < 1) val = 1; // Mencegah angka 0 atau negatif
+            input.value = val;
+        }
+
         function resetInputDetail() {
             document.getElementById('trans-harga').value = '';
-            document.getElementById('trans-ukuran').value = '';
+            document.getElementById('trans-ukuran').innerHTML = '<option value="">-</option>';
+            document.getElementById('trans-jumlah').value = 1;
         }
 
         function tambahkanKeKeranjang() {
             const namaSelect = document.getElementById('trans-nama');
             const nama = namaSelect.value;
+            const ukuran = document.getElementById('trans-ukuran').value;
             
             if(!nama) return showToast("Silakan pilih nama barang terlebih dahulu!", "error");
 
-            // Ambil item asli dari database (karena input harga menggunakan pemisah ribuan)
-            const itemOriginal = databaseBarang.find(i => i.nama === nama);
+            // Ambil item asli dari database berdasarkan NAMA dan UKURAN
+            const itemOriginal = databaseBarang.find(i => i.nama === nama && i.ukuran === ukuran);
             if(!itemOriginal) return;
 
             const harga = parseInt(itemOriginal.harga);
-            const ukuran = document.getElementById('trans-ukuran').value;
             const jml = parseInt(document.getElementById('trans-jumlah').value) || 1;
             
             // Cek apakah barang sudah ada di keranjang, jika ada tambahkan jumlahnya
@@ -567,6 +620,22 @@
 
             toggleLoading(true, 'Memproses Pembayaran...');
 
+            // Buat Objek Transaksi Saat Ini untuk tampilan instan
+            const opsiTanggal = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+            const currentTx = {
+                id: "TX_TEMP_" + Date.now().toString(),
+                tanggal: new Date().toLocaleDateString('id-ID', opsiTanggal),
+                nama: namaPelanggan,
+                wa: noWa,
+                items: [...keranjang],
+                totalItem: totalItem,
+                totalHarga: totalHarga
+            };
+
+            // Simpan ke array riwayat secara instan agar langsung muncul tanpa harus nunggu fetch ulang
+            riwayatTransaksi.unshift(currentTx);
+            updateDropdownRiwayat();
+
             const formData = new URLSearchParams();
             formData.append('action', 'addTransaksi');
             formData.append('nama_pelanggan', namaPelanggan);
@@ -580,8 +649,8 @@
                 .then(res => res.text())
                 .then(text => {
                     toggleLoading(false);
-                    showToast("Transaksi Berhasil!");
-                    buatStruk(namaPelanggan, noWa, totalItem, totalHarga);
+                    showToast("Transaksi Berhasil Disimpan di Spreadsheet!");
+                    tampilkanStruk(currentTx);
                     switchTab('page-pesanan');
                 })
                 .catch(err => {
@@ -591,19 +660,34 @@
         }
 
         // --- HALAMAN 3: STRUK & REKAP ---
-        function buatStruk(nama, wa, totalItem, totalHarga) {
-            // Set Tanggal saat ini
-            const opsiTanggal = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
-            document.getElementById('struk-tanggal').innerText = new Date().toLocaleDateString('id-ID', opsiTanggal);
+        function updateDropdownRiwayat() {
+            const select = document.getElementById('dropdown-riwayat');
+            if(riwayatTransaksi.length === 0) {
+                select.innerHTML = '<option value="">-- Belum ada riwayat --</option>';
+                return;
+            }
+            select.innerHTML = riwayatTransaksi.map(tx => 
+                `<option value="${tx.id}">${tx.tanggal} - ${tx.nama}</option>`
+            ).join('');
+        }
 
-            document.getElementById('rekap-nama').innerText = nama;
-            document.getElementById('rekap-wa').innerText = wa;
-            document.getElementById('rekap-total-item').innerText = totalItem;
-            document.getElementById('rekap-total-harga').innerText = totalHarga.toLocaleString('id-ID');
+        function gantiRiwayat() {
+            const id = document.getElementById('dropdown-riwayat').value;
+            const tx = riwayatTransaksi.find(t => t.id === id);
+            if(tx) tampilkanStruk(tx);
+        }
+
+        function tampilkanStruk(tx) {
+            currentViewedTx = tx;
+            document.getElementById('struk-tanggal').innerText = tx.tanggal;
+            document.getElementById('rekap-nama').innerText = tx.nama;
+            document.getElementById('rekap-wa').innerText = tx.wa;
+            document.getElementById('rekap-total-item').innerText = tx.totalItem;
+            document.getElementById('rekap-total-harga').innerText = tx.totalHarga.toLocaleString('id-ID');
 
             const tbody = document.getElementById('tabel-rekap-body');
             let html = '';
-            keranjang.forEach((item, index) => {
+            tx.items.forEach((item, index) => {
                 html += `
                     <tr class="border-b border-gray-100 last:border-0">
                         <td class="py-2 align-top text-gray-500">${index + 1}.</td>
@@ -617,12 +701,17 @@
                 `;
             });
             tbody.innerHTML = html;
+            
+            // Sesuaikan nilai dropdown dengan struk yang sedang dilihat
+            document.getElementById('dropdown-riwayat').value = tx.id;
         }
 
         function kirimWhatsApp() {
-            let nama = document.getElementById('rekap-nama').innerText;
-            let wa = document.getElementById('rekap-wa').innerText;
-            let totalHarga = document.getElementById('rekap-total-harga').innerText;
+            if(!currentViewedTx) return showToast("Tidak ada data pesanan yang dipilih!", "error");
+
+            let nama = currentViewedTx.nama;
+            let wa = currentViewedTx.wa;
+            let totalHarga = currentViewedTx.totalHarga.toLocaleString('id-ID');
             
             // Format nomor WA (ubah 0 jadi 62 diawal)
             wa = wa.replace(/[^0-9]/g, ''); // bersihkan karakter non angka
@@ -631,7 +720,7 @@
             }
 
             let pesan = `Halo *${nama}*,\nBerikut adalah rincian pesanan Anda:\n\n`;
-            keranjang.forEach((item, index) => {
+            currentViewedTx.items.forEach((item, index) => {
                 pesan += `${index+1}. ${item.nama} (Uk: ${item.ukuran})\n   ${item.jml} x Rp ${item.harga.toLocaleString('id-ID')} = Rp ${item.subtotal.toLocaleString('id-ID')}\n`;
             });
             pesan += `\n==================\n`;
