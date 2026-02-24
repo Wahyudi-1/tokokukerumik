@@ -38,11 +38,11 @@
                 <button onclick="switchTab('page-pesanan')" id="tab-pesanan" class="tab-btn px-4 py-2 rounded-md font-semibold text-gray-600 hover:bg-gray-100 transition whitespace-nowrap">3. Data Pesanan</button>
             </div>
             
-            <!-- Tombol Update Manual 
+            <!-- Tombol Update Manual -->
             <button onclick="forceUpdateAplikasi()" class="flex items-center gap-1 px-4 py-2 text-sm font-bold text-white bg-indigo-500 hover:bg-indigo-600 rounded-md shadow-sm transition whitespace-nowrap">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                 <span class="hidden sm:inline">Update Aplikasi</span>
-            </button>-->
+            </button>
         </div>
     </nav>
 
@@ -590,6 +590,39 @@
             renderTabelKeranjang();
         }
 
+        function editDariKeranjang(index) {
+            // Ambil data item yang ingin diedit
+            const item = keranjang[index];
+            const originalItem = databaseBarang.find(i => i.nama === item.nama && i.ukuran === item.ukuran);
+            
+            if (originalItem) {
+                // 1. Set dropdown Jenis Barang
+                document.getElementById('trans-jenis').value = originalItem.jenis;
+                updateDropdownNamaSemua(originalItem.jenis);
+                
+                // 2. Set dropdown Nama Barang
+                document.getElementById('trans-nama').value = item.nama;
+                
+                // 3. Set dropdown Ukuran
+                const variasiBarang = databaseBarang.filter(i => i.nama === item.nama);
+                document.getElementById('trans-ukuran').innerHTML = variasiBarang.map(v => `<option value="${v.ukuran}">${v.ukuran}</option>`).join('');
+                document.getElementById('trans-ukuran').value = item.ukuran;
+                
+                // 4. Set Harga dan Jumlah
+                document.getElementById('trans-harga').value = item.harga.toLocaleString('id-ID');
+                document.getElementById('trans-jumlah').value = item.jml;
+            }
+
+            // Hapus dari keranjang sementara sedang diedit
+            keranjang.splice(index, 1);
+            renderTabelKeranjang();
+            
+            showToast("Mode Edit: Silakan sesuaikan ukuran/jumlah lalu klik Tambahkan Barang kembali.", "info");
+            
+            // Otomatis scroll sedikit ke atas (ke arah form) agar pengguna sadar
+            document.getElementById('step-barang').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
         function renderTabelKeranjang() {
             const tbody = document.getElementById('tabel-keranjang-body');
             
@@ -614,10 +647,17 @@
                         <td class="px-4 py-2 text-right">Rp ${item.harga.toLocaleString('id-ID')}</td>
                         <td class="px-4 py-2 text-center">${item.jml}</td>
                         <td class="px-4 py-2 text-right font-semibold text-blue-600">Rp ${item.subtotal.toLocaleString('id-ID')}</td>
-                        <td class="px-4 py-2 text-center">
-                            <button onclick="hapusDariKeranjang(${index})" class="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 p-1 rounded">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                            </button>
+                        <td class="px-4 py-2">
+                            <div class="flex justify-center gap-1">
+                                <!-- Tombol Edit -->
+                                <button onclick="editDariKeranjang(${index})" class="text-yellow-500 hover:text-yellow-700 bg-yellow-50 hover:bg-yellow-100 p-1.5 rounded transition" title="Edit Barang">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                                </button>
+                                <!-- Tombol Hapus -->
+                                <button onclick="hapusDariKeranjang(${index})" class="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 p-1.5 rounded transition" title="Hapus Barang">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 `;
