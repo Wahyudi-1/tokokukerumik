@@ -56,11 +56,11 @@
                 <form id="form-barang" onsubmit="submitBarang(event)" class="space-y-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Jenis Barang</label>
-                        <input type="text" id="input-jenis" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" placeholder="Contoh: Kue Kering, Minuman, Roti">
+                        <input type="text" id="input-jenis" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" placeholder="Contoh: Baju, Celana, Sepatu">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Nama Barang</label>
-                        <input type="text" id="input-nama" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" placeholder="Contoh: Nastar, Puding Jelly, Roti Mocca">
+                        <input type="text" id="input-nama" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" placeholder="Contoh: Kaos Polos Hitam">
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
@@ -69,7 +69,7 @@
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Ukuran</label>
-                            <input type="text" id="input-ukuran" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" placeholder="Contoh: Besar, 300ml, Kecil">
+                            <input type="text" id="input-ukuran" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" placeholder="Contoh: M, L, XL, 42">
                         </div>
                     </div>
                     <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition shadow-md mt-4">
@@ -276,6 +276,14 @@
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
                         Cetak Struk Fisik
                     </button>
+                    <button onclick="editPesanan()" class="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 px-4 rounded-lg transition shadow flex justify-center items-center gap-2">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                        Ubah Pesanan
+                    </button>
+                    <button onclick="hapusPesanan()" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg transition shadow flex justify-center items-center gap-2">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        Hapus Pesanan
+                    </button>
                     <button onclick="resetSemua()" class="md:col-span-2 mt-2 w-full bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold py-2 px-4 rounded-lg transition border border-blue-200">
                         Buat Transaksi Baru
                     </button>
@@ -299,6 +307,7 @@
         let jenisUnik = [];
         let riwayatTransaksi = []; // Diubah: Sepenuhnya mengambil dari Spreadsheet, bukan localStorage
         let currentViewedTx = null;
+        let editingTxId = null; // Menandai jika sedang mode edit pesanan
 
         // --- INISIALISASI ---
         window.onload = () => {
@@ -403,21 +412,28 @@
             const ukuranInput = document.getElementById('input-ukuran').value.trim();
 
             // Validasi: Cek apakah kombinasi jenis, nama, dan ukuran sudah ada di database (mengabaikan huruf besar/kecil)
-            const isDuplicate = databaseBarang.some(item => 
+            const existingItem = databaseBarang.find(item => 
                 item.jenis.toLowerCase() === jenisInput.toLowerCase() &&
                 item.nama.toLowerCase() === namaInput.toLowerCase() &&
                 item.ukuran.toLowerCase() === ukuranInput.toLowerCase()
             );
 
-            if (isDuplicate) {
-                showToast("Barang dengan jenis, nama, dan ukuran tersebut sudah ada di database!", "error");
-                return; // Hentikan proses penyimpanan
+            let actionType = 'addBarang';
+
+            if (existingItem) {
+                // Minta konfirmasi dari pengguna jika data sudah ada
+                const isConfirmed = confirm(`Data barang sudah tersedia (Harga saat ini: Rp ${existingItem.harga.toLocaleString('id-ID')}).\nApakah Anda ingin memperbarui harga barang menjadi Rp ${parseInt(hargaInput).toLocaleString('id-ID')}?`);
+                
+                if (!isConfirmed) {
+                    return; // Hentikan proses jika pengguna menekan "Batal/Cancel"
+                }
+                actionType = 'editBarang'; // Ubah aksi menjadi update
             }
 
-            toggleLoading(true, 'Menyimpan Barang...');
+            toggleLoading(true, existingItem ? 'Memperbarui Harga Barang...' : 'Menyimpan Barang...');
 
             const formData = new URLSearchParams();
-            formData.append('action', 'addBarang');
+            formData.append('action', actionType);
             formData.append('jenis', jenisInput);
             formData.append('nama', namaInput);
             formData.append('harga', hargaInput);
@@ -426,9 +442,9 @@
             fetch(SCRIPT_URL, { method: 'POST', body: formData })
                 .then(res => res.text())
                 .then(text => {
-                    showToast("Barang berhasil ditambahkan!");
+                    showToast(existingItem ? "Harga barang berhasil diperbarui!" : "Barang berhasil ditambahkan!");
                     document.getElementById('form-barang').reset();
-                    loadDatabase(); // Refresh data lokal
+                    loadDatabase(); // Refresh data lokal agar sinkron
                 })
                 .catch(err => {
                     showToast("Gagal menyimpan. Cek koneksi.", "error");
@@ -638,11 +654,15 @@
 
             toggleLoading(true, 'Memproses Pembayaran...');
 
-            // Buat Objek Transaksi Saat Ini untuk tampilan instan
+            // Menentukan Action dan ID (Buat baru atau Edit yang sudah ada)
+            const actionType = editingTxId ? 'editTransaksi' : 'addTransaksi';
+            const txId = editingTxId || ("TX_" + Date.now().toString());
             const opsiTanggal = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+            
+            // Buat Objek Transaksi Saat Ini untuk tampilan instan
             const currentTx = {
-                id: "TX_TEMP_" + Date.now().toString(),
-                tanggal: new Date().toLocaleDateString('id-ID', opsiTanggal),
+                id: txId,
+                tanggal: editingTxId && currentViewedTx ? currentViewedTx.tanggal : new Date().toLocaleDateString('id-ID', opsiTanggal), // Pertahankan tanggal lama jika edit
                 nama: namaPelanggan,
                 wa: noWa,
                 items: [...keranjang],
@@ -650,12 +670,18 @@
                 totalHarga: totalHarga
             };
 
-            // Simpan ke array riwayat secara instan agar langsung muncul tanpa harus nunggu fetch ulang
-            riwayatTransaksi.unshift(currentTx);
+            // Simpan ke array riwayat secara instan
+            if(editingTxId) {
+                const index = riwayatTransaksi.findIndex(t => t.id === editingTxId);
+                if(index > -1) riwayatTransaksi[index] = currentTx;
+            } else {
+                riwayatTransaksi.unshift(currentTx);
+            }
             updateDropdownRiwayat();
 
             const formData = new URLSearchParams();
-            formData.append('action', 'addTransaksi');
+            formData.append('action', actionType);
+            formData.append('id', txId); // Kirim ID transaksi
             formData.append('nama_pelanggan', namaPelanggan);
             formData.append('no_wa', noWa);
             formData.append('detail_pesanan', JSON.stringify(keranjang));
@@ -667,9 +693,10 @@
                 .then(res => res.text())
                 .then(text => {
                     toggleLoading(false);
-                    showToast("Transaksi Berhasil Disimpan di Spreadsheet!");
+                    showToast(editingTxId ? "Pesanan Berhasil Diperbarui!" : "Transaksi Berhasil Disimpan!");
                     tampilkanStruk(currentTx);
                     switchTab('page-pesanan');
+                    editingTxId = null; // Reset status edit
                 })
                 .catch(err => {
                     toggleLoading(false);
@@ -680,10 +707,15 @@
         // --- HALAMAN 3: STRUK & REKAP ---
         function updateDropdownRiwayat() {
             const select = document.getElementById('dropdown-riwayat');
+            const areaStruk = document.getElementById('area-struk');
+            
             if(riwayatTransaksi.length === 0) {
                 select.innerHTML = '<option value="">-- Belum ada riwayat --</option>';
+                areaStruk.classList.add('hidden'); // Sembunyikan area struk jika kosong
                 return;
             }
+            
+            areaStruk.classList.remove('hidden');
             select.innerHTML = riwayatTransaksi.map(tx => 
                 `<option value="${tx.id}">${tx.tanggal} - ${tx.nama}</option>`
             ).join('');
@@ -754,9 +786,67 @@
             window.print();
         }
 
+        function editPesanan() {
+            if(!currentViewedTx) return showToast("Tidak ada data pesanan yang dipilih!", "error");
+            
+            // Set ID untuk mode edit
+            editingTxId = currentViewedTx.id;
+            
+            // Isi form data pelanggan
+            document.getElementById('trans-nama-pelanggan').value = currentViewedTx.nama;
+            document.getElementById('trans-no-wa').value = currentViewedTx.wa;
+            
+            // Salin keranjang dari pesanan yang dipilih (deep copy)
+            keranjang = JSON.parse(JSON.stringify(currentViewedTx.items));
+            
+            renderTabelKeranjang();
+            lanjutKePilihBarang(); // Otomatis lompat ke step pilih barang
+            switchTab('page-transaksi');
+            
+            showToast("Mode Edit: Silakan perbarui pesanan", "info");
+        }
+
+        function hapusPesanan() {
+            if(!currentViewedTx) return showToast("Tidak ada data pesanan yang dipilih!", "error");
+            
+            if(!confirm(`Apakah Anda yakin ingin MEMBATALKAN dan MENGHAPUS pesanan atas nama ${currentViewedTx.nama}?`)) {
+                return;
+            }
+
+            const txId = currentViewedTx.id;
+            toggleLoading(true, 'Menghapus Pesanan...');
+
+            const formData = new URLSearchParams();
+            formData.append('action', 'deleteTransaksi');
+            formData.append('id', txId);
+
+            fetch(SCRIPT_URL, { method: 'POST', body: formData })
+                .then(res => res.text())
+                .then(text => {
+                    toggleLoading(false);
+                    showToast("Pesanan berhasil dihapus!");
+                    
+                    // Hapus dari state lokal
+                    riwayatTransaksi = riwayatTransaksi.filter(t => t.id !== txId);
+                    updateDropdownRiwayat();
+                    
+                    // Tampilkan pesanan lain jika ada, atau kosongkan
+                    if(riwayatTransaksi.length > 0) {
+                        tampilkanStruk(riwayatTransaksi[0]);
+                    } else {
+                        currentViewedTx = null;
+                    }
+                })
+                .catch(err => {
+                    toggleLoading(false);
+                    showToast("Gagal menghapus pesanan. Cek koneksi internet.", "error");
+                });
+        }
+
         function resetSemua() {
             // Kosongkan Keranjang & Form
             keranjang = [];
+            editingTxId = null;
             document.getElementById('trans-nama-pelanggan').value = '';
             document.getElementById('trans-no-wa').value = '';
             
