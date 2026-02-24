@@ -1,6 +1,6 @@
 // --- KONFIGURASI URL APPS SCRIPT ---
 // GANTI URL DI BAWAH INI DENGAN URL DEPLOYMENT APPS SCRIPT ANDA
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxiqbnt7pSW1BlSeoIyKx1E6xoGu3fK5iyyFfLHCU2FWe3qJunzo_DaiWW-QwiAStFJ/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyqLsVIPvnv7DL1FxBUcYIyx5oSgS3A1PTFauU_zqUWrdta2XxdAqUSjvALam_m50sQHw/exec';
 
 // --- STATE APLIKASI ---
 let databaseBarang = [];
