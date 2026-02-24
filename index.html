@@ -395,14 +395,33 @@
         // --- HALAMAN 1: INPUT BARANG ---
         function submitBarang(e) {
             e.preventDefault();
+            
+            // Ambil nilai input dan hilangkan spasi berlebih di awal/akhir
+            const jenisInput = document.getElementById('input-jenis').value.trim();
+            const namaInput = document.getElementById('input-nama').value.trim();
+            const hargaInput = document.getElementById('input-harga').value;
+            const ukuranInput = document.getElementById('input-ukuran').value.trim();
+
+            // Validasi: Cek apakah kombinasi jenis, nama, dan ukuran sudah ada di database (mengabaikan huruf besar/kecil)
+            const isDuplicate = databaseBarang.some(item => 
+                item.jenis.toLowerCase() === jenisInput.toLowerCase() &&
+                item.nama.toLowerCase() === namaInput.toLowerCase() &&
+                item.ukuran.toLowerCase() === ukuranInput.toLowerCase()
+            );
+
+            if (isDuplicate) {
+                showToast("Barang dengan jenis, nama, dan ukuran tersebut sudah ada di database!", "error");
+                return; // Hentikan proses penyimpanan
+            }
+
             toggleLoading(true, 'Menyimpan Barang...');
 
             const formData = new URLSearchParams();
             formData.append('action', 'addBarang');
-            formData.append('jenis', document.getElementById('input-jenis').value);
-            formData.append('nama', document.getElementById('input-nama').value);
-            formData.append('harga', document.getElementById('input-harga').value);
-            formData.append('ukuran', document.getElementById('input-ukuran').value);
+            formData.append('jenis', jenisInput);
+            formData.append('nama', namaInput);
+            formData.append('harga', hargaInput);
+            formData.append('ukuran', ukuranInput);
 
             fetch(SCRIPT_URL, { method: 'POST', body: formData })
                 .then(res => res.text())
@@ -543,11 +562,10 @@
             const harga = parseInt(itemOriginal.harga);
             const jml = parseInt(document.getElementById('trans-jumlah').value) || 1;
             
-            // Cek apakah barang sudah ada di keranjang, jika ada tambahkan jumlahnya
+            // Cek apakah barang sudah ada di keranjang, tolak jika sudah ada
             const indexAda = keranjang.findIndex(k => k.nama === nama && k.ukuran === ukuran);
             if(indexAda > -1) {
-                keranjang[indexAda].jml += jml;
-                keranjang[indexAda].subtotal = keranjang[indexAda].jml * keranjang[indexAda].harga;
+                return showToast("Barang dengan ukuran tersebut sudah ada di keranjang!", "error");
             } else {
                 keranjang.push({ 
                     nama: nama, 
