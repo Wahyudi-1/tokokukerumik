@@ -38,3 +38,40 @@
         padding: 0 !important;
     }
 }
+
+/* (Biarkan semua CSS Anda yang lama di atas) */
+
+/* BARU: Style untuk Tampilan Kartu di Mobile */
+@media (max-width: 767px) {
+  /* Sembunyikan header tabel di mobile */
+  .responsive-table thead {
+    display: none;
+  }
+  /* Ubah baris menjadi blok kartu */
+  .responsive-table tr {
+    display: block;
+    margin-bottom: 1rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+    padding: 1rem;
+    background-color: white;
+  }
+  /* Ubah sel menjadi blok dengan label */
+  .responsive-table td {
+    display: block;
+    text-align: right !important; /* Paksa teks ke kanan agar sejajar dengan label */
+    padding-left: 50%; /* Beri ruang untuk label */
+    position: relative;
+    border: none !important;
+  }
+  .responsive-table td:before {
+    content: attr(data-label); /* Ambil teks dari atribut data-label */
+    position: absolute;
+    left: 0.5rem;
+    width: 45%;
+    padding-right: 0.5rem;
+    font-weight: 600;
+    text-align: left !important;
+    color: #4b5563; /* text-gray-600 */
+  }
+}
