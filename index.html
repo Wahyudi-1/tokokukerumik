@@ -4,13 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <!-- TAG ANTI-CACHE KETAT (Dikembalikan untuk mencegah masalah GitHub Pages) -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
 
     <title>Sistem Manajemen Barang & Kasir</title>
-    <!-- Tailwind CSS untuk Styling Modern -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* Animasi untuk Toast Notification */
@@ -29,7 +27,6 @@
 </head>
 <body class="bg-gray-100 font-sans text-gray-800 antialiased min-h-screen flex flex-col">
 
-    <!-- Navbar -->
     <nav class="bg-white shadow-md no-print sticky top-0 z-10">
         <div class="max-w-4xl mx-auto px-4 flex justify-between items-center">
             <div class="flex space-x-2 overflow-x-auto py-3">
@@ -37,16 +34,9 @@
                 <button onclick="switchTab('page-transaksi')" id="tab-transaksi" class="tab-btn px-4 py-2 rounded-md font-semibold text-gray-600 hover:bg-gray-100 transition whitespace-nowrap">2. Transaksi</button>
                 <button onclick="switchTab('page-pesanan')" id="tab-pesanan" class="tab-btn px-4 py-2 rounded-md font-semibold text-gray-600 hover:bg-gray-100 transition whitespace-nowrap">3. Data Pesanan</button>
             </div>
-            
-            <!-- Tombol Update Manual 
-            <button onclick="forceUpdateAplikasi()" class="flex items-center gap-1 px-4 py-2 text-sm font-bold text-white bg-indigo-500 hover:bg-indigo-600 rounded-md shadow-sm transition whitespace-nowrap">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                <span class="hidden sm:inline">Update Aplikasi</span>
-            </button>-->
         </div>
     </nav>
 
-    <!-- Loading Overlay -->
     <div id="loading-overlay" class="fixed inset-0 bg-white/80 z-50 flex flex-col items-center justify-center hidden">
         <svg class="animate-spin h-10 w-10 text-blue-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -55,10 +45,8 @@
         <p class="text-gray-600 font-medium animate-pulse" id="loading-text">Memuat Data...</p>
     </div>
 
-    <!-- Main Content -->
     <main class="flex-grow max-w-4xl mx-auto w-full p-4">
         
-        <!-- HALAMAN 1: INPUT BARANG -->
         <section id="page-input" class="page-section space-y-6">
             <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
@@ -91,10 +79,8 @@
             </div>
         </section>
 
-        <!-- HALAMAN 2: TRANSAKSI -->
         <section id="page-transaksi" class="page-section hidden space-y-6">
             
-            <!-- Step 1: Data Pelanggan -->
             <div id="step-pelanggan" class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
                     <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
@@ -115,7 +101,6 @@
                 </div>
             </div>
 
-            <!-- Step 2: Pilih Barang -->
             <div id="step-barang" class="hidden space-y-6">
                 <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                     <div class="flex justify-between items-center mb-6">
@@ -124,15 +109,14 @@
                     </div>
 
                     <div class="space-y-4 bg-blue-50/50 p-4 rounded-lg border border-blue-100">
-                        <!-- Jenis Barang dengan Tombol Panah -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Jenis Barang</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Jenis Barang (Opsional Filter)</label>
                             <div class="flex items-center gap-2">
                                 <button onclick="ubahJenisDropdown(-1)" class="p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 active:bg-gray-200 transition">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>
                                 </button>
                                 <select id="trans-jenis" onchange="syncNamaBerdasarkanJenis()" class="flex-grow px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
-                                    <option value="">-- Pilih Jenis --</option>
+                                    <option value="">-- Semua Jenis --</option>
                                 </select>
                                 <button onclick="ubahJenisDropdown(1)" class="p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 active:bg-gray-200 transition">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
@@ -140,15 +124,15 @@
                             </div>
                         </div>
 
-                        <!-- Nama Barang -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Nama Barang</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Cari & Pilih Nama Barang</label>
+                            <input type="text" id="search-barang" oninput="onSearchBarangInput()" class="w-full px-4 py-2 mb-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white outline-none" placeholder="🔍 Ketik nama barang untuk mencari...">
+                            
                             <select id="trans-nama" onchange="syncJenisBerdasarkanNama()" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
                                 <option value="">-- Pilih Barang --</option>
                             </select>
                         </div>
 
-                        <!-- Harga & Ukuran (Otomatis) -->
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Harga (Otomatis)</label>
@@ -165,7 +149,6 @@
                             </div>
                         </div>
 
-                        <!-- Jumlah -->
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Jumlah Pesanan</label>
                             <div class="flex items-center">
@@ -182,7 +165,6 @@
                     </div>
                 </div>
 
-                <!-- Display Keranjang -->
                 <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                     <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                         <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
@@ -224,9 +206,7 @@
             </div>
         </section>
 
-        <!-- HALAMAN 3: DATA PESANAN (STRUK) -->
         <section id="page-pesanan" class="page-section hidden">
-            <!-- Pilihan Riwayat Pelanggan -->
             <div class="max-w-2xl mx-auto mb-6 no-print bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex items-center gap-4">
                 <label class="font-medium text-gray-700 whitespace-nowrap">Riwayat Pesanan:</label>
                 <select id="dropdown-riwayat" onchange="gantiRiwayat()" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
@@ -236,7 +216,6 @@
 
             <div id="area-struk" class="print-area bg-white p-8 rounded-xl shadow-md border border-gray-200 max-w-2xl mx-auto relative">
                 
-                <!-- Hiasan Pinggir Struk -->
                 <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 to-green-500 rounded-t-xl no-print"></div>
 
                 <div class="text-center mb-6">
@@ -264,8 +243,7 @@
                             </tr>
                         </thead>
                         <tbody id="tabel-rekap-body" class="text-gray-800">
-                            <!-- Diisi oleh JS -->
-                        </tbody>
+                            </tbody>
                     </table>
                 </div>
 
@@ -278,7 +256,6 @@
                     Terima kasih telah berbelanja!
                 </div>
 
-                <!-- Tombol Aksi (Tidak ikut dicetak) -->
                 <div class="no-print grid grid-cols-1 md:grid-cols-2 gap-4 mt-8 border-t border-gray-100 pt-6">
                     <button onclick="kirimWhatsApp()" class="w-full bg-[#25D366] hover:bg-[#128C7E] text-white font-bold py-3 px-4 rounded-lg transition shadow flex justify-center items-center gap-2">
                         <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
@@ -305,10 +282,8 @@
 
     </main>
 
-    <!-- Custom Toast Notification -->
     <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2"></div>
 
-    <!-- JavaScript Logic -->
     <script>
         // --- KONFIGURASI URL APPS SCRIPT ---
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzY9KK11OFs5CGnntlB_b-DiRa_es8qAl9FUWjlsX-vLrYFAqX8SWBAfmAZDsteGtJnAA/exec';
@@ -400,6 +375,7 @@
                 
             } catch (error) {
                 console.error("Error:", error);
+                showToast("Gagal mengambil data dari server.", "error");
             } finally {
                 toggleLoading(false);
             }
@@ -453,7 +429,7 @@
                 });
         }
 
-        // --- HALAMAN 2: TRANSAKSI (LOGIKA DROPDOWN & KERANJANG) ---
+        // --- HALAMAN 2: TRANSAKSI (LOGIKA PENCARIAN & KERANJANG) ---
         function lanjutKePilihBarang() {
             const nama = document.getElementById('trans-nama-pelanggan').value.trim();
             const wa = document.getElementById('trans-no-wa').value.trim();
@@ -478,21 +454,37 @@
                 jenisUnik.map(j => `<option value="${j}">${j}</option>`).join('');
         }
 
-        function updateDropdownNamaSemua(filterJenis = "") {
+        // --- FITUR BARU: FUNGSI FILTER/SEARCH NAMA BARANG ---
+        function updateDropdownNamaSemua(filterJenis = "", keyword = "") {
             const select = document.getElementById('trans-nama');
             let items = databaseBarang;
+            
             if (filterJenis) {
                 items = databaseBarang.filter(item => item.jenis === filterJenis);
             }
             
-            const namaUnik = [...new Set(items.map(item => item.nama))];
+            let namaUnik = [...new Set(items.map(item => item.nama))];
+            
+            // Terapkan filter keyword jika ada
+            if (keyword) {
+                namaUnik = namaUnik.filter(nama => nama.toLowerCase().includes(keyword.toLowerCase()));
+            }
             
             select.innerHTML = '<option value="">-- Pilih Barang --</option>' + 
                 namaUnik.map(nama => `<option value="${nama}">${nama}</option>`).join('');
         }
 
+        function onSearchBarangInput() {
+            const keyword = document.getElementById('search-barang').value;
+            const filterJenis = document.getElementById('trans-jenis').value;
+            updateDropdownNamaSemua(filterJenis, keyword);
+            resetInputDetail();
+        }
+
         function syncNamaBerdasarkanJenis() {
             const jenisTerpilih = document.getElementById('trans-jenis').value;
+            // Reset input pencarian saat jenis barang diubah
+            document.getElementById('search-barang').value = ''; 
             updateDropdownNamaSemua(jenisTerpilih); 
             resetInputDetail(); 
         }
@@ -516,6 +508,7 @@
                 selectUkuran.innerHTML = variasiBarang.map(item => `<option value="${item.ukuran}">${item.ukuran}</option>`).join('');
                 
                 const selectJenis = document.getElementById('trans-jenis');
+                // Singkronkan kategori jika belum sesuai
                 if (variasiBarang.length > 0 && selectJenis.value !== variasiBarang[0].jenis) {
                     selectJenis.value = variasiBarang[0].jenis;
                 }
@@ -577,6 +570,11 @@
                 });
             }
 
+            // Bersihkan form input detail pesanan
+            document.getElementById('search-barang').value = ''; // Reset pencarian
+            const filterJenis = document.getElementById('trans-jenis').value;
+            updateDropdownNamaSemua(filterJenis); // Kembalikan list normal
+            
             document.getElementById('trans-nama').value = '';
             document.getElementById('trans-jumlah').value = 1;
             resetInputDetail();
@@ -674,14 +672,12 @@
                 .then(text => {
                     toggleLoading(false);
                     
-                    // --- VALIDASI RESPON DARI SERVER ---
-                    // Mengecek apakah server gagal menemukan ID atau skrip belum diperbarui
                     if (text.includes("ID tidak ditemukan") || (actionType === 'editTransaksi' && !text.includes("diperbarui"))) {
                         let errorMsg = text.includes("ID tidak ditemukan") 
                             ? "Gagal: Pesanan lama ini belum memiliki ID di Spreadsheet." 
                             : "Gagal: Anda belum men-Deploy Apps Script ke Versi Baru!";
                         showToast(errorMsg, "error");
-                        loadDatabase(); // Tarik ulang data asli dari server membatalkan perubahan lokal
+                        loadDatabase(); 
                         return;
                     }
 
@@ -754,7 +750,6 @@
             let wa = String(currentViewedTx.wa); 
             let totalHarga = currentViewedTx.totalHarga.toLocaleString('id-ID');
             
-            // Format nomor WA untuk Indonesia (62)
             wa = wa.replace(/[^0-9]/g, ''); 
             
             if (wa.startsWith('0')) {
@@ -763,7 +758,6 @@
                 wa = '62' + wa;
             }
 
-            // --- TEMPLATE PESAN WA (Telah sedikit dimodifikasi agar Anda bisa melihat perubahannya) ---
             let pesan = `Halo *${nama}*,\nBerikut adalah rincian pesanan Anda dari toko kami:\n\n`;
             currentViewedTx.items.forEach((item, index) => {
                 pesan += `${index+1}. ${item.nama} (Uk: ${item.ukuran})\n   ${item.jml} x Rp ${item.harga.toLocaleString('id-ID')} = Rp ${item.subtotal.toLocaleString('id-ID')}\n`;
@@ -844,16 +838,6 @@
             kembaliKePelanggan();
             switchTab('page-transaksi');
         }
-
-        // --- FUNGSI UPDATE APLIKASI (DIPERKUAT) ---
-        function forceUpdateAplikasi() {
-            toggleLoading(true, 'Mengecek pembaruan sistem...');
-            
-            // Gunakan metode replace dengan parameter waktu acak agar tidak nyangkut di cache
-            const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?v=' + new Date().getTime();
-            window.location.replace(newUrl);
-        }
-
     </script>
 </body>
 </html>
