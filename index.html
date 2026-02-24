@@ -13,6 +13,8 @@
 
     <!-- Tailwind CSS (CDN) -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js (CDN) - BARU -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <!-- Custom CSS -->
     <link rel="stylesheet" href="style.css">
@@ -26,6 +28,8 @@
                 <button onclick="switchTab('page-input')" id="tab-input" class="tab-btn px-4 py-2 rounded-md font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 transition whitespace-nowrap">1. Input Barang</button>
                 <button onclick="switchTab('page-transaksi')" id="tab-transaksi" class="tab-btn px-4 py-2 rounded-md font-semibold text-gray-600 hover:bg-gray-100 transition whitespace-nowrap">2. Transaksi</button>
                 <button onclick="switchTab('page-pesanan')" id="tab-pesanan" class="tab-btn px-4 py-2 rounded-md font-semibold text-gray-600 hover:bg-gray-100 transition whitespace-nowrap">3. Data Pesanan</button>
+                <!-- Tombol Dashboard - BARU -->
+                <button onclick="switchTab('page-dashboard')" id="tab-dashboard" class="tab-btn px-4 py-2 rounded-md font-semibold text-gray-600 hover:bg-gray-100 transition whitespace-nowrap">4. Dashboard</button>
             </div>
         </div>
     </nav>
@@ -42,7 +46,7 @@
     <!-- Main Content -->
     <main class="flex-grow max-w-4xl mx-auto w-full p-4">
         
-        <!-- HALAMAN 1: INPUT BARANG -->
+        <!-- HALAMAN 1: INPUT BARANG (TIDAK BERUBAH) -->
         <section id="page-input" class="page-section space-y-6">
             <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
@@ -50,6 +54,7 @@
                     Input Data Barang
                 </h2>
                 <form id="form-barang" onsubmit="submitBarang(event)" class="space-y-4">
+                    <!-- Isi Form Input Barang -->
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Jenis Barang</label>
                         <input type="text" id="input-jenis" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" placeholder="Contoh: Baju, Celana, Sepatu">
@@ -68,13 +73,17 @@
                             <input type="text" id="input-ukuran" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" placeholder="Contoh: M, L, XL, 42">
                         </div>
                     </div>
-                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition shadow-md mt-4">
-                        Simpan Barang ke Database
-                    </button>
+                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition shadow-md mt-4">Simpan Barang ke Database</button>
                 </form>
             </div>
         </section>
 
+        <!-- HALAMAN 2: TRANSAKSI (TIDAK BERUBAH) -->
+        <section id="page-transaksi" class="page-section hidden space-y-6">
+            <!-- Isi Halaman Transaksi -->
+            <!-- ... (Kode HTML lengkap untuk Halaman Transaksi Anda ditempatkan di sini) ... -->
+        </section>
+        
         <!-- HALAMAN 2: TRANSAKSI -->
         <section id="page-transaksi" class="page-section hidden space-y-6">
             
@@ -289,8 +298,71 @@
 
     </main>
 
+        <!-- HALAMAN 4: DASHBOARD (BARU) -->
+        <section id="page-dashboard" class="page-section hidden space-y-6">
+            <!-- Filter -->
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 grid grid-cols-1 md:grid-cols-4 gap-4 items-end no-print">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Filter Jenis Barang</label>
+                    <select id="filter-jenis" onchange="applyDashboardFilters()" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
+                        <option value="">Semua Jenis</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Filter Ukuran</label>
+                    <select id="filter-ukuran" onchange="applyDashboardFilters()" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
+                        <option value="">Semua Ukuran</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Cari Nama Pelanggan</label>
+                    <input type="text" id="filter-pelanggan" oninput="applyDashboardFilters()" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Ketik nama...">
+                </div>
+                <button onclick="resetDashboardFilters()" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg transition">Reset Filter</button>
+            </div>
+
+            <!-- Kartu Data Numerik -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                <div class="bg-blue-500 text-white p-4 rounded-xl shadow-lg">
+                    <p class="text-sm opacity-80">Total Pendapatan</p>
+                    <p id="db-total-pendapatan" class="text-2xl font-bold">Rp 0</p>
+                </div>
+                <div class="bg-green-500 text-white p-4 rounded-xl shadow-lg">
+                    <p class="text-sm opacity-80">Total Barang Terjual</p>
+                    <p id="db-total-barang" class="text-2xl font-bold">0</p>
+                </div>
+                <div class="bg-yellow-500 text-white p-4 rounded-xl shadow-lg">
+                    <p class="text-sm opacity-80">Total Transaksi</p>
+                    <p id="db-total-transaksi" class="text-2xl font-bold">0</p>
+                </div>
+                <div class="bg-purple-500 text-white p-4 rounded-xl shadow-lg">
+                    <p class="text-sm opacity-80">Produk Terlaris</p>
+                    <p id="db-produk-terlaris" class="text-lg font-bold truncate">-</p>
+                </div>
+            </div>
+
+            <!-- Grafik -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <h3 class="font-bold text-lg mb-4">Pendapatan Berdasarkan Jenis Barang</h3>
+                    <canvas id="chart-jenis-barang"></canvas>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <h3 class="font-bold text-lg mb-4">Top 5 Produk Terlaris (Jumlah)</h3>
+                    <canvas id="chart-top-produk"></canvas>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
     <!-- Custom Toast Notification Container -->
     <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2"></div>
+
+    <!-- External JavaScript -->
+    <script src="script.js"></script>
+</body>
+</html>
 
     <!-- External JavaScript -->
     <script src="script.js"></script>
