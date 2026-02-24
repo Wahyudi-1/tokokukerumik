@@ -180,11 +180,11 @@ function kirimWhatsApp() {
     // Format WA nomor pastikan mulai dari 62
     if(wa.startsWith('0')) wa = '62' + wa.substring(1);
 
-    let pesan = `Halo ${nama},\nBerikut adalah detail pesanan Anda:\n\n`;
+    let pesan = `Halo ${nama},\nBerikut adalah detail pesananmu di Dapoer Umik:\n\n`;
     keranjang.forEach((item, i) => {
         pesan += `${i+1}. ${item.nama} (Uk: ${item.ukuran}) - ${item.jml} x Rp ${item.harga}\n`;
     });
-    pesan += `\n*Total Tagihan: Rp ${totalHarga}*\n\nTerima kasih telah berbelanja!`;
+    pesan += `\n*Total Tagihan: Rp ${totalHarga}*\n\nTerima kasih telah berbelanja, semoga berkah!`;
 
     let url = `https://wa.me/${wa}?text=${encodeURIComponent(pesan)}`;
     window.open(url, '_blank');
