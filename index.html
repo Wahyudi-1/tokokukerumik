@@ -206,7 +206,7 @@
 
                     <button onclick="prosesBayar()" class="w-full mt-6 bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-4 rounded-lg transition shadow-lg flex justify-center items-center gap-2 text-lg">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
-                        Bayar & Buat Pesanan
+                        Simpan Pesanan
                     </button>
                 </div>
             </div>
@@ -305,9 +305,9 @@
         let databaseBarang = [];
         let keranjang = [];
         let jenisUnik = [];
-        let riwayatTransaksi = []; // Diubah: Sepenuhnya mengambil dari Spreadsheet, bukan localStorage
+        let riwayatTransaksi = []; 
         let currentViewedTx = null;
-        let editingTxId = null; // Menandai jika sedang mode edit pesanan
+        let editingTxId = null;
 
         // --- INISIALISASI ---
         window.onload = () => {
@@ -319,7 +319,7 @@
         function showToast(message, type = 'success') {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
-            const bgColor = type === 'success' ? 'bg-green-600' : (type === 'error' ? 'bg-red-600' : 'bg-blue-600');
+            const bgColor = type === 'success' ? 'bg-green-600' : (type === 'error' ? 'bg-red-600' : (type === 'info' ? 'bg-yellow-500' : 'bg-blue-600'));
             
             toast.className = `${bgColor} text-white px-6 py-3 rounded-lg shadow-lg font-medium flex items-center gap-2 toast-enter`;
             toast.innerHTML = `
@@ -349,16 +349,12 @@
 
         // --- NAVIGASI TAB ---
         function switchTab(pageId) {
-            // Sembunyikan semua halaman
             document.querySelectorAll('.page-section').forEach(p => p.classList.add('hidden'));
-            // Tampilkan halaman aktif
             document.getElementById(pageId).classList.remove('hidden');
 
-            // Reset styling tab
             document.querySelectorAll('.tab-btn').forEach(btn => {
                 btn.className = "tab-btn px-4 py-2 rounded-md font-semibold text-gray-600 hover:bg-gray-100 transition whitespace-nowrap";
             });
-            // Highlight tab aktif
             const activeTabId = pageId.replace('page-', 'tab-');
             const activeTab = document.getElementById(activeTabId);
             if(activeTab) {
@@ -374,21 +370,17 @@
                 if(!response.ok) throw new Error("Gagal load data");
                 const data = await response.json();
                 
-                // Menyesuaikan dengan format backend baru yang mengirim { barang: [], pesanan: [] }
                 if(Array.isArray(data)) {
-                    // Fallback jika backend belum diperbarui ke versi baru
                     databaseBarang = data;
                 } else {
                     databaseBarang = data.barang || [];
                     riwayatTransaksi = data.pesanan || [];
                 }
                 
-                // Set Dropdown Jenis & Nama Barang
                 jenisUnik = [...new Set(databaseBarang.map(item => item.jenis))];
                 updateDropdownJenis();
                 updateDropdownNamaSemua();
                 
-                // Set Dropdown Riwayat Pesanan dari Spreadsheet
                 updateDropdownRiwayat();
                 if(riwayatTransaksi.length > 0) {
                     tampilkanStruk(riwayatTransaksi[0]);
@@ -405,13 +397,11 @@
         function submitBarang(e) {
             e.preventDefault();
             
-            // Ambil nilai input dan hilangkan spasi berlebih di awal/akhir
             const jenisInput = document.getElementById('input-jenis').value.trim();
             const namaInput = document.getElementById('input-nama').value.trim();
             const hargaInput = document.getElementById('input-harga').value;
             const ukuranInput = document.getElementById('input-ukuran').value.trim();
 
-            // Validasi: Cek apakah kombinasi jenis, nama, dan ukuran sudah ada di database (mengabaikan huruf besar/kecil)
             const existingItem = databaseBarang.find(item => 
                 item.jenis.toLowerCase() === jenisInput.toLowerCase() &&
                 item.nama.toLowerCase() === namaInput.toLowerCase() &&
@@ -421,13 +411,12 @@
             let actionType = 'addBarang';
 
             if (existingItem) {
-                // Minta konfirmasi dari pengguna jika data sudah ada
                 const isConfirmed = confirm(`Data barang sudah tersedia (Harga saat ini: Rp ${existingItem.harga.toLocaleString('id-ID')}).\nApakah Anda ingin memperbarui harga barang menjadi Rp ${parseInt(hargaInput).toLocaleString('id-ID')}?`);
                 
                 if (!isConfirmed) {
-                    return; // Hentikan proses jika pengguna menekan "Batal/Cancel"
+                    return; 
                 }
-                actionType = 'editBarang'; // Ubah aksi menjadi update
+                actionType = 'editBarang'; 
             }
 
             toggleLoading(true, existingItem ? 'Memperbarui Harga Barang...' : 'Menyimpan Barang...');
@@ -444,7 +433,7 @@
                 .then(text => {
                     showToast(existingItem ? "Harga barang berhasil diperbarui!" : "Barang berhasil ditambahkan!");
                     document.getElementById('form-barang').reset();
-                    loadDatabase(); // Refresh data lokal agar sinkron
+                    loadDatabase(); 
                 })
                 .catch(err => {
                     showToast("Gagal menyimpan. Cek koneksi.", "error");
@@ -471,14 +460,12 @@
             document.getElementById('step-pelanggan').classList.remove('hidden');
         }
 
-        // Update option di Dropdown Jenis
         function updateDropdownJenis() {
             const select = document.getElementById('trans-jenis');
             select.innerHTML = '<option value="">-- Semua Jenis --</option>' + 
                 jenisUnik.map(j => `<option value="${j}">${j}</option>`).join('');
         }
 
-        // Update option di Dropdown Nama (Bisa semua, bisa difilter)
         function updateDropdownNamaSemua(filterJenis = "") {
             const select = document.getElementById('trans-nama');
             let items = databaseBarang;
@@ -486,62 +473,51 @@
                 items = databaseBarang.filter(item => item.jenis === filterJenis);
             }
             
-            // Ambil daftar nama yang unik (agar tidak ada nama ganda di dropdown jika ukurannya berbeda-beda)
             const namaUnik = [...new Set(items.map(item => item.nama))];
             
             select.innerHTML = '<option value="">-- Pilih Barang --</option>' + 
                 namaUnik.map(nama => `<option value="${nama}">${nama}</option>`).join('');
         }
 
-        // TRIGGER 1: Jika Jenis dipilih dari dropdown (atau via panah)
         function syncNamaBerdasarkanJenis() {
             const jenisTerpilih = document.getElementById('trans-jenis').value;
-            updateDropdownNamaSemua(jenisTerpilih); // Filter dropdown nama
-            resetInputDetail(); // Reset harga dan ukuran krn barang blm dipilih
+            updateDropdownNamaSemua(jenisTerpilih); 
+            resetInputDetail(); 
         }
 
-        // Fungsi Panah Atas/Bawah untuk Dropdown Jenis
         function ubahJenisDropdown(arah) {
             const select = document.getElementById('trans-jenis');
             let index = select.selectedIndex + arah;
             
             if (index >= 0 && index < select.options.length) {
                 select.selectedIndex = index;
-                syncNamaBerdasarkanJenis(); // Panggil sinkronisasi
+                syncNamaBerdasarkanJenis(); 
             }
         }
 
-        // TRIGGER 2: Jika Nama dipilih dari dropdown
         function syncJenisBerdasarkanNama() {
             const namaTerpilih = document.getElementById('trans-nama').value;
             const selectUkuran = document.getElementById('trans-ukuran');
             
             if (namaTerpilih) {
-                // Cari semua variasi barang dengan nama tersebut (untuk mendapatkan daftar ukuran)
                 const variasiBarang = databaseBarang.filter(i => i.nama === namaTerpilih);
-                
-                // Isi Dropdown Ukuran sesuai ketersediaan di database
                 selectUkuran.innerHTML = variasiBarang.map(item => `<option value="${item.ukuran}">${item.ukuran}</option>`).join('');
                 
-                // SINKRONISASI KE JENIS: Ubah dropdown jenis secara otomatis
                 const selectJenis = document.getElementById('trans-jenis');
                 if (variasiBarang.length > 0 && selectJenis.value !== variasiBarang[0].jenis) {
                     selectJenis.value = variasiBarang[0].jenis;
                 }
 
-                // Otomatis sinkronkan harga berdasarkan ukuran pertama yang muncul di dropdown
                 syncHargaBerdasarkanUkuran();
             } else {
                 resetInputDetail();
             }
         }
 
-        // TRIGGER 3: Jika Ukuran diubah, update harga menyesuaikan variasi ukuran
         function syncHargaBerdasarkanUkuran() {
             const namaTerpilih = document.getElementById('trans-nama').value;
             const ukuranTerpilih = document.getElementById('trans-ukuran').value;
             
-            // Cari data spesifik berdasarkan nama DAN ukuran
             const item = databaseBarang.find(i => i.nama === namaTerpilih && i.ukuran === ukuranTerpilih);
             
             if (item) {
@@ -549,12 +525,11 @@
             }
         }
 
-        // Fungsi Tambah Kurang Jumlah
         function ubahJumlah(delta) {
             const input = document.getElementById('trans-jumlah');
             let val = parseInt(input.value) || 1;
             val += delta;
-            if (val < 1) val = 1; // Mencegah angka 0 atau negatif
+            if (val < 1) val = 1; 
             input.value = val;
         }
 
@@ -571,14 +546,12 @@
             
             if(!nama) return showToast("Silakan pilih nama barang terlebih dahulu!", "error");
 
-            // Ambil item asli dari database berdasarkan NAMA dan UKURAN
             const itemOriginal = databaseBarang.find(i => i.nama === nama && i.ukuran === ukuran);
             if(!itemOriginal) return;
 
             const harga = parseInt(itemOriginal.harga);
             const jml = parseInt(document.getElementById('trans-jumlah').value) || 1;
             
-            // Cek apakah barang sudah ada di keranjang, tolak jika sudah ada
             const indexAda = keranjang.findIndex(k => k.nama === nama && k.ukuran === ukuran);
             if(indexAda > -1) {
                 return showToast("Barang dengan ukuran tersebut sudah ada di keranjang!", "error");
@@ -592,7 +565,6 @@
                 });
             }
 
-            // Reset Form Pilih Barang
             document.getElementById('trans-nama').value = '';
             document.getElementById('trans-jumlah').value = 1;
             resetInputDetail();
@@ -654,15 +626,13 @@
 
             toggleLoading(true, 'Memproses Pembayaran...');
 
-            // Menentukan Action dan ID (Buat baru atau Edit yang sudah ada)
             const actionType = editingTxId ? 'editTransaksi' : 'addTransaksi';
             const txId = editingTxId || ("TX_" + Date.now().toString());
             const opsiTanggal = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
             
-            // Buat Objek Transaksi Saat Ini untuk tampilan instan
             const currentTx = {
                 id: txId,
-                tanggal: editingTxId && currentViewedTx ? currentViewedTx.tanggal : new Date().toLocaleDateString('id-ID', opsiTanggal), // Pertahankan tanggal lama jika edit
+                tanggal: editingTxId && currentViewedTx ? currentViewedTx.tanggal : new Date().toLocaleDateString('id-ID', opsiTanggal), 
                 nama: namaPelanggan,
                 wa: noWa,
                 items: [...keranjang],
@@ -670,7 +640,6 @@
                 totalHarga: totalHarga
             };
 
-            // Simpan ke array riwayat secara instan
             if(editingTxId) {
                 const index = riwayatTransaksi.findIndex(t => t.id === editingTxId);
                 if(index > -1) riwayatTransaksi[index] = currentTx;
@@ -681,14 +650,13 @@
 
             const formData = new URLSearchParams();
             formData.append('action', actionType);
-            formData.append('id', txId); // Kirim ID transaksi
+            formData.append('id', txId);
             formData.append('nama_pelanggan', namaPelanggan);
             formData.append('no_wa', noWa);
             formData.append('detail_pesanan', JSON.stringify(keranjang));
             formData.append('total_item', totalItem);
             formData.append('total_harga', totalHarga);
 
-            // POST ke server (Asinkron)
             fetch(SCRIPT_URL, { method: 'POST', body: formData })
                 .then(res => res.text())
                 .then(text => {
@@ -696,7 +664,7 @@
                     showToast(editingTxId ? "Pesanan Berhasil Diperbarui!" : "Transaksi Berhasil Disimpan!");
                     tampilkanStruk(currentTx);
                     switchTab('page-pesanan');
-                    editingTxId = null; // Reset status edit
+                    editingTxId = null; 
                 })
                 .catch(err => {
                     toggleLoading(false);
@@ -711,7 +679,7 @@
             
             if(riwayatTransaksi.length === 0) {
                 select.innerHTML = '<option value="">-- Belum ada riwayat --</option>';
-                areaStruk.classList.add('hidden'); // Sembunyikan area struk jika kosong
+                areaStruk.classList.add('hidden'); 
                 return;
             }
             
@@ -752,7 +720,6 @@
             });
             tbody.innerHTML = html;
             
-            // Sesuaikan nilai dropdown dengan struk yang sedang dilihat
             document.getElementById('dropdown-riwayat').value = tx.id;
         }
 
@@ -763,10 +730,13 @@
             let wa = currentViewedTx.wa;
             let totalHarga = currentViewedTx.totalHarga.toLocaleString('id-ID');
             
-            // Format nomor WA (ubah 0 jadi 62 diawal)
-            wa = wa.replace(/[^0-9]/g, ''); // bersihkan karakter non angka
+            // Format nomor WA untuk Indonesia (62)
+            wa = wa.replace(/[^0-9]/g, ''); 
+            
             if (wa.startsWith('0')) {
                 wa = '62' + wa.substring(1);
+            } else if (!wa.startsWith('62')) {
+                wa = '62' + wa;
             }
 
             let pesan = `Halo *${nama}*,\nBerikut adalah rincian pesanan Anda:\n\n`;
@@ -789,18 +759,15 @@
         function editPesanan() {
             if(!currentViewedTx) return showToast("Tidak ada data pesanan yang dipilih!", "error");
             
-            // Set ID untuk mode edit
             editingTxId = currentViewedTx.id;
             
-            // Isi form data pelanggan
             document.getElementById('trans-nama-pelanggan').value = currentViewedTx.nama;
             document.getElementById('trans-no-wa').value = currentViewedTx.wa;
             
-            // Salin keranjang dari pesanan yang dipilih (deep copy)
             keranjang = JSON.parse(JSON.stringify(currentViewedTx.items));
             
             renderTabelKeranjang();
-            lanjutKePilihBarang(); // Otomatis lompat ke step pilih barang
+            lanjutKePilihBarang(); 
             switchTab('page-transaksi');
             
             showToast("Mode Edit: Silakan perbarui pesanan", "info");
@@ -826,15 +793,14 @@
                     toggleLoading(false);
                     showToast("Pesanan berhasil dihapus!");
                     
-                    // Hapus dari state lokal
                     riwayatTransaksi = riwayatTransaksi.filter(t => t.id !== txId);
                     updateDropdownRiwayat();
                     
-                    // Tampilkan pesanan lain jika ada, atau kosongkan
                     if(riwayatTransaksi.length > 0) {
                         tampilkanStruk(riwayatTransaksi[0]);
                     } else {
                         currentViewedTx = null;
+                        document.getElementById('area-struk').classList.add('hidden');
                     }
                 })
                 .catch(err => {
@@ -844,7 +810,6 @@
         }
 
         function resetSemua() {
-            // Kosongkan Keranjang & Form
             keranjang = [];
             editingTxId = null;
             document.getElementById('trans-nama-pelanggan').value = '';
