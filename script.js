@@ -184,7 +184,7 @@ function kirimWhatsApp() {
     keranjang.forEach((item, i) => {
         pesan += `${i+1}. ${item.nama} (Uk: ${item.ukuran}) - ${item.jml} x Rp ${item.harga}\n`;
     });
-    pesan += `\n*Total Tagihan: Rp ${totalHarga}*\n\nTerima kasih telah berbelanja, semoga berkah!`;
+    pesan += `\n*Total Tagihan: Rp ${totalHarga}*\n\nTerima kasih telah berbelanja, semoga berkah 🥰!`;
 
     let url = `https://wa.me/${wa}?text=${encodeURIComponent(pesan)}`;
     window.open(url, '_blank');
