@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Manajemen Barang & Kasir</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav>
+        <button onclick="showPage('page-input')">1. Input Barang</button>
+        <button onclick="showPage('page-transaksi')">2. Transaksi</button>
+        <button onclick="showPage('page-pesanan')">3. Data Pesanan</button>
+    </nav>
+
+    <main>
+        <section id="page-input" class="page active">
+            <h2>Input Data Barang</h2>
+            <form id="form-barang" onsubmit="submitBarang(event)">
+                <div class="form-group">
+                    <label>Jenis Barang:</label>
+                    <input type="text" id="input-jenis" required>
+                </div>
+                <div class="form-group">
+                    <label>Nama Barang:</label>
+                    <input type="text" id="input-nama" required>
+                </div>
+                <div class="form-group">
+                    <label>Harga (Rp):</label>
+                    <input type="number" id="input-harga" required>
+                </div>
+                <div class="form-group">
+                    <label>Ukuran:</label>
+                    <input type="text" id="input-ukuran" required>
+                </div>
+                <button type="submit" class="btn-primary">Simpan Barang</button>
+            </form>
+        </section>
+
+        <section id="page-transaksi" class="page">
+            <h2>Transaksi Barang</h2>
+            
+            <div id="step-pelanggan">
+                <h3>Data Pelanggan</h3>
+                <div class="form-group">
+                    <label>Nama Pelanggan:</label>
+                    <input type="text" id="trans-nama-pelanggan">
+                </div>
+                <div class="form-group">
+                    <label>No WhatsApp:</label>
+                    <input type="text" id="trans-no-wa" placeholder="08123456789">
+                </div>
+                <button onclick="lanjutKeBarang()" class="btn-primary">Lanjut Pilih Barang</button>
+            </div>
+
+            <div id="step-barang" style="display: none;">
+                <h3>Pilih Barang</h3>
+                <div class="form-group row-group">
+                    <label>Jenis Barang:</label>
+                    <button onclick="ubahJenis(-1)">▲</button>
+                    <select id="trans-jenis" onchange="filterNamaBarang()"></select>
+                    <button onclick="ubahJenis(1)">▼</button>
+                </div>
+                <div class="form-group">
+                    <label>Nama Barang:</label>
+                    <select id="trans-nama" onchange="autoFillDetail()"></select>
+                </div>
+                <div class="form-group row-group">
+                    <div>
+                        <label>Harga:</label>
+                        <input type="number" id="trans-harga" readonly>
+                    </div>
+                    <div>
+                        <label>Ukuran:</label>
+                        <input type="text" id="trans-ukuran" readonly>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Jumlah:</label>
+                    <input type="number" id="trans-jumlah" value="1" min="1">
+                </div>
+                <button onclick="tambahKeKeranjang()" class="btn-secondary">Tambahkan Barang</button>
+
+                <h3 style="margin-top: 20px;">Display Pesanan</h3>
+                <table id="tabel-keranjang">
+                    <thead>
+                        <tr>
+                            <th>Barang</th>
+                            <th>Ukuran</th>
+                            <th>Harga</th>
+                            <th>Jml</th>
+                            <th>Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+                <button onclick="prosesBayar()" class="btn-primary" style="margin-top: 15px; width: 100%;">Bayar & Cetak Struk</button>
+            </div>
+        </section>
+
+        <section id="page-pesanan" class="page">
+            <h2>Rekap Pesanan Pelanggan</h2>
+            <div id="rekap-container" class="receipt-box">
+                <p><strong>Nama:</strong> <span id="rekap-nama">-</span></p>
+                <p><strong>No WA:</strong> <span id="rekap-wa">-</span></p>
+                <hr>
+                <table id="tabel-rekap" style="width: 100%; text-align: left;">
+                    <thead>
+                        <tr>
+                            <th>No</th><th>Nama Barang</th><th>Ukuran</th><th>Harga</th><th>Jml</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+                <hr>
+                <p><strong>Total Barang:</strong> <span id="rekap-total-item">0</span></p>
+                <p><strong>Total Harga:</strong> Rp <span id="rekap-total-harga">0</span></p>
+                
+                <button onclick="kirimWhatsApp()" class="btn-wa">Kirim Pesanan via WhatsApp</button>
+                <button onclick="window.print()" class="btn-secondary">Cetak Struk Fisik</button>
+            </div>
+        </section>
+    </main>
+    <script src="script.js"></script>
+</body>
+</html>
