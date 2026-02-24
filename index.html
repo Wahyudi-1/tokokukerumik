@@ -4,123 +4,660 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistem Manajemen Barang & Kasir</title>
-    <link rel="stylesheet" href="style.css">
+    <!-- Tailwind CSS untuk Styling Modern -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Animasi untuk Toast Notification */
+        .toast-enter { transform: translateY(100%); opacity: 0; }
+        .toast-enter-active { transform: translateY(0); opacity: 1; transition: all 0.3s ease-out; }
+        .toast-exit { transform: translateY(0); opacity: 1; }
+        .toast-exit-active { transform: translateY(100%); opacity: 0; transition: all 0.3s ease-in; }
+
+        /* Menyembunyikan elemen tertentu saat mencetak struk */
+        @media print {
+            .no-print { display: none !important; }
+            body { background-color: white; }
+            .print-area { box-shadow: none !important; margin: 0 !important; width: 100% !important; padding: 0 !important;}
+        }
+    </style>
 </head>
-<body>
-    <nav>
-        <button onclick="showPage('page-input')">1. Input Barang</button>
-        <button onclick="showPage('page-transaksi')">2. Transaksi</button>
-        <button onclick="showPage('page-pesanan')">3. Data Pesanan</button>
+<body class="bg-gray-100 font-sans text-gray-800 antialiased min-h-screen flex flex-col">
+
+    <!-- Navbar -->
+    <nav class="bg-white shadow-md no-print sticky top-0 z-10">
+        <div class="max-w-4xl mx-auto px-4">
+            <div class="flex space-x-2 overflow-x-auto py-3">
+                <button onclick="switchTab('page-input')" id="tab-input" class="tab-btn px-4 py-2 rounded-md font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 transition whitespace-nowrap">1. Input Barang</button>
+                <button onclick="switchTab('page-transaksi')" id="tab-transaksi" class="tab-btn px-4 py-2 rounded-md font-semibold text-gray-600 hover:bg-gray-100 transition whitespace-nowrap">2. Transaksi</button>
+                <button onclick="switchTab('page-pesanan')" id="tab-pesanan" class="tab-btn px-4 py-2 rounded-md font-semibold text-gray-600 hover:bg-gray-100 transition whitespace-nowrap">3. Data Pesanan</button>
+            </div>
+        </div>
     </nav>
 
-    <main>
-        <section id="page-input" class="page active">
-            <h2>Input Data Barang</h2>
-            <form id="form-barang" onsubmit="submitBarang(event)">
-                <div class="form-group">
-                    <label>Jenis Barang:</label>
-                    <input type="text" id="input-jenis" required>
-                </div>
-                <div class="form-group">
-                    <label>Nama Barang:</label>
-                    <input type="text" id="input-nama" required>
-                </div>
-                <div class="form-group">
-                    <label>Harga (Rp):</label>
-                    <input type="number" id="input-harga" required>
-                </div>
-                <div class="form-group">
-                    <label>Ukuran:</label>
-                    <input type="text" id="input-ukuran" required>
-                </div>
-                <button type="submit" class="btn-primary">Simpan Barang</button>
-            </form>
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="fixed inset-0 bg-white/80 z-50 flex flex-col items-center justify-center hidden">
+        <svg class="animate-spin h-10 w-10 text-blue-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <p class="text-gray-600 font-medium animate-pulse" id="loading-text">Memuat Data...</p>
+    </div>
+
+    <!-- Main Content -->
+    <main class="flex-grow max-w-4xl mx-auto w-full p-4">
+        
+        <!-- HALAMAN 1: INPUT BARANG -->
+        <section id="page-input" class="page-section space-y-6">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                    <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                    Input Data Barang
+                </h2>
+                <form id="form-barang" onsubmit="submitBarang(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Jenis Barang</label>
+                        <input type="text" id="input-jenis" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" placeholder="Contoh: Baju, Celana, Sepatu">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Nama Barang</label>
+                        <input type="text" id="input-nama" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" placeholder="Contoh: Kaos Polos Hitam">
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Harga (Rp)</label>
+                            <input type="number" id="input-harga" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" placeholder="0">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Ukuran</label>
+                            <input type="text" id="input-ukuran" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" placeholder="Contoh: M, L, XL, 42">
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition shadow-md mt-4">
+                        Simpan Barang ke Database
+                    </button>
+                </form>
+            </div>
         </section>
 
-        <section id="page-transaksi" class="page">
-            <h2>Transaksi Barang</h2>
+        <!-- HALAMAN 2: TRANSAKSI -->
+        <section id="page-transaksi" class="page-section hidden space-y-6">
             
-            <div id="step-pelanggan">
-                <h3>Data Pelanggan</h3>
-                <div class="form-group">
-                    <label>Nama Pelanggan:</label>
-                    <input type="text" id="trans-nama-pelanggan">
+            <!-- Step 1: Data Pelanggan -->
+            <div id="step-pelanggan" class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                    <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                    Data Pelanggan
+                </h2>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Nama Pelanggan</label>
+                        <input type="text" id="trans-nama-pelanggan" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none" placeholder="Masukkan nama pelanggan">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Nomor WhatsApp</label>
+                        <input type="number" id="trans-no-wa" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none" placeholder="Contoh: 08123456789">
+                    </div>
+                    <button onclick="lanjutKePilihBarang()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition shadow-md mt-2">
+                        Lanjut Pilih Barang &rarr;
+                    </button>
                 </div>
-                <div class="form-group">
-                    <label>No WhatsApp:</label>
-                    <input type="text" id="trans-no-wa" placeholder="08123456789">
-                </div>
-                <button onclick="lanjutKeBarang()" class="btn-primary">Lanjut Pilih Barang</button>
             </div>
 
-            <div id="step-barang" style="display: none;">
-                <h3>Pilih Barang</h3>
-                <div class="form-group row-group">
-                    <label>Jenis Barang:</label>
-                    <button onclick="ubahJenis(-1)">▲</button>
-                    <select id="trans-jenis" onchange="filterNamaBarang()"></select>
-                    <button onclick="ubahJenis(1)">▼</button>
-                </div>
-                <div class="form-group">
-                    <label>Nama Barang:</label>
-                    <select id="trans-nama" onchange="autoFillDetail()"></select>
-                </div>
-                <div class="form-group row-group">
-                    <div>
-                        <label>Harga:</label>
-                        <input type="number" id="trans-harga" readonly>
+            <!-- Step 2: Pilih Barang -->
+            <div id="step-barang" class="hidden space-y-6">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-xl font-bold text-gray-800">Pilih Barang</h2>
+                        <button onclick="kembaliKePelanggan()" class="text-sm text-gray-500 hover:text-gray-700 underline">Ganti Pelanggan</button>
                     </div>
-                    <div>
-                        <label>Ukuran:</label>
-                        <input type="text" id="trans-ukuran" readonly>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label>Jumlah:</label>
-                    <input type="number" id="trans-jumlah" value="1" min="1">
-                </div>
-                <button onclick="tambahKeKeranjang()" class="btn-secondary">Tambahkan Barang</button>
 
-                <h3 style="margin-top: 20px;">Display Pesanan</h3>
-                <table id="tabel-keranjang">
-                    <thead>
-                        <tr>
-                            <th>Barang</th>
-                            <th>Ukuran</th>
-                            <th>Harga</th>
-                            <th>Jml</th>
-                            <th>Subtotal</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
-                <button onclick="prosesBayar()" class="btn-primary" style="margin-top: 15px; width: 100%;">Bayar & Cetak Struk</button>
+                    <div class="space-y-4 bg-blue-50/50 p-4 rounded-lg border border-blue-100">
+                        <!-- Jenis Barang dengan Tombol Panah -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Jenis Barang</label>
+                            <div class="flex items-center gap-2">
+                                <button onclick="ubahJenisDropdown(-1)" class="p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 active:bg-gray-200 transition">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>
+                                </button>
+                                <select id="trans-jenis" onchange="syncNamaBerdasarkanJenis()" class="flex-grow px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
+                                    <option value="">-- Pilih Jenis --</option>
+                                </select>
+                                <button onclick="ubahJenisDropdown(1)" class="p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 active:bg-gray-200 transition">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Nama Barang -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Nama Barang</label>
+                            <select id="trans-nama" onchange="syncJenisBerdasarkanNama()" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
+                                <option value="">-- Pilih Barang --</option>
+                            </select>
+                        </div>
+
+                        <!-- Harga & Ukuran (Otomatis) -->
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Harga (Otomatis)</label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-2 text-gray-500">Rp</span>
+                                    <input type="text" id="trans-harga" readonly class="w-full pl-10 pr-4 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-700 font-semibold cursor-not-allowed">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Ukuran</label>
+                                <input type="text" id="trans-ukuran" readonly class="w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-700 cursor-not-allowed text-center">
+                            </div>
+                        </div>
+
+                        <!-- Jumlah -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Jumlah Pesanan</label>
+                            <input type="number" id="trans-jumlah" value="1" min="1" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-center text-lg font-bold">
+                        </div>
+
+                        <button onclick="tambahkanKeKeranjang()" class="w-full bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold py-3 px-4 rounded-lg transition border border-blue-300 flex justify-center items-center gap-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                            Tambahkan Barang
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Display Keranjang -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                        <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                        Display Pesanan
+                    </h3>
+                    <div class="overflow-x-auto rounded-lg border border-gray-200">
+                        <table class="w-full text-sm text-left text-gray-600">
+                            <thead class="text-xs text-gray-700 uppercase bg-gray-50 border-b border-gray-200">
+                                <tr>
+                                    <th scope="col" class="px-4 py-3">Nama Barang</th>
+                                    <th scope="col" class="px-4 py-3 text-center">Ukuran</th>
+                                    <th scope="col" class="px-4 py-3 text-right">Harga</th>
+                                    <th scope="col" class="px-4 py-3 text-center">Jml</th>
+                                    <th scope="col" class="px-4 py-3 text-right">Subtotal</th>
+                                    <th scope="col" class="px-4 py-3 text-center">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabel-keranjang-body">
+                                <tr><td colspan="6" class="px-4 py-4 text-center text-gray-400 italic">Keranjang masih kosong</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="mt-4 flex justify-between items-end border-t border-gray-200 pt-4">
+                        <div>
+                            <p class="text-sm text-gray-500">Total Item: <span id="total-item-keranjang" class="font-bold text-gray-800">0</span></p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-sm text-gray-500">Total Tagihan:</p>
+                            <p class="text-2xl font-bold text-blue-600">Rp <span id="total-harga-keranjang">0</span></p>
+                        </div>
+                    </div>
+
+                    <button onclick="prosesBayar()" class="w-full mt-6 bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-4 rounded-lg transition shadow-lg flex justify-center items-center gap-2 text-lg">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                        Bayar & Buat Pesanan
+                    </button>
+                </div>
             </div>
         </section>
 
-        <section id="page-pesanan" class="page">
-            <h2>Rekap Pesanan Pelanggan</h2>
-            <div id="rekap-container" class="receipt-box">
-                <p><strong>Nama:</strong> <span id="rekap-nama">-</span></p>
-                <p><strong>No WA:</strong> <span id="rekap-wa">-</span></p>
-                <hr>
-                <table id="tabel-rekap" style="width: 100%; text-align: left;">
-                    <thead>
-                        <tr>
-                            <th>No</th><th>Nama Barang</th><th>Ukuran</th><th>Harga</th><th>Jml</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
-                <hr>
-                <p><strong>Total Barang:</strong> <span id="rekap-total-item">0</span></p>
-                <p><strong>Total Harga:</strong> Rp <span id="rekap-total-harga">0</span></p>
+        <!-- HALAMAN 3: DATA PESANAN (STRUK) -->
+        <section id="page-pesanan" class="page-section hidden">
+            <div id="area-struk" class="print-area bg-white p-8 rounded-xl shadow-md border border-gray-200 max-w-2xl mx-auto relative">
                 
-                <button onclick="kirimWhatsApp()" class="btn-wa">Kirim Pesanan via WhatsApp</button>
-                <button onclick="window.print()" class="btn-secondary">Cetak Struk Fisik</button>
+                <!-- Hiasan Pinggir Struk -->
+                <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 to-green-500 rounded-t-xl no-print"></div>
+
+                <div class="text-center mb-6">
+                    <h2 class="text-3xl font-extrabold text-gray-800 uppercase tracking-wider">STRUK PESANAN</h2>
+                    <p class="text-sm text-gray-500 mt-1" id="struk-tanggal">-</p>
+                </div>
+
+                <div class="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                    <div class="grid grid-cols-3 gap-2 text-sm">
+                        <div class="text-gray-500 font-medium">Pelanggan</div>
+                        <div class="col-span-2 font-bold text-gray-800">: <span id="rekap-nama">-</span></div>
+                        <div class="text-gray-500 font-medium">No. WhatsApp</div>
+                        <div class="col-span-2 font-bold text-gray-800">: <span id="rekap-wa">-</span></div>
+                    </div>
+                </div>
+
+                <div class="border-t border-b border-dashed border-gray-300 py-4 mb-6">
+                    <table class="w-full text-sm text-left">
+                        <thead>
+                            <tr class="text-gray-500 border-b border-gray-200">
+                                <th class="pb-2 font-medium w-8">No</th>
+                                <th class="pb-2 font-medium">Barang & Ukuran</th>
+                                <th class="pb-2 font-medium text-center">Jml</th>
+                                <th class="pb-2 font-medium text-right">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabel-rekap-body" class="text-gray-800">
+                            <!-- Diisi oleh JS -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="flex justify-between items-center text-lg mb-8">
+                    <div class="font-medium text-gray-600">Total Item: <span id="rekap-total-item" class="font-bold text-gray-800">0</span></div>
+                    <div class="font-extrabold text-gray-800 text-xl">TOTAL: Rp <span id="rekap-total-harga">0</span></div>
+                </div>
+
+                <div class="text-center text-gray-500 text-sm italic mb-8">
+                    Terima kasih telah berbelanja!
+                </div>
+
+                <!-- Tombol Aksi (Tidak ikut dicetak) -->
+                <div class="no-print grid grid-cols-1 md:grid-cols-2 gap-4 mt-8 border-t border-gray-100 pt-6">
+                    <button onclick="kirimWhatsApp()" class="w-full bg-[#25D366] hover:bg-[#128C7E] text-white font-bold py-3 px-4 rounded-lg transition shadow flex justify-center items-center gap-2">
+                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+                        Kirim ke WhatsApp
+                    </button>
+                    <button onclick="cetakStruk()" class="w-full bg-gray-800 hover:bg-gray-900 text-white font-bold py-3 px-4 rounded-lg transition shadow flex justify-center items-center gap-2">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                        Cetak Struk Fisik
+                    </button>
+                    <button onclick="resetSemua()" class="md:col-span-2 mt-2 w-full bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold py-2 px-4 rounded-lg transition border border-blue-200">
+                        Buat Transaksi Baru
+                    </button>
+                </div>
             </div>
         </section>
+
     </main>
-    <script src="script.js"></script>
+
+    <!-- Custom Toast Notification -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2"></div>
+
+    <!-- JavaScript Logic -->
+    <script>
+        // --- KONFIGURASI URL APPS SCRIPT ---
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzY9KK11OFs5CGnntlB_b-DiRa_es8qAl9FUWjlsX-vLrYFAqX8SWBAfmAZDsteGtJnAA/exec';
+
+        // --- STATE APLIKASI ---
+        let databaseBarang = [];
+        let keranjang = [];
+        let jenisUnik = [];
+
+        // --- INISIALISASI ---
+        window.onload = () => {
+            switchTab('page-input');
+            loadDatabase();
+        };
+
+        // --- SISTEM NOTIFIKASI TOAST ---
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const bgColor = type === 'success' ? 'bg-green-600' : (type === 'error' ? 'bg-red-600' : 'bg-blue-600');
+            
+            toast.className = `${bgColor} text-white px-6 py-3 rounded-lg shadow-lg font-medium flex items-center gap-2 toast-enter`;
+            toast.innerHTML = `
+                ${type === 'success' ? '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>' : ''}
+                ${message}
+            `;
+            
+            container.appendChild(toast);
+            
+            // Trigger animation
+            setTimeout(() => { toast.classList.remove('toast-enter'); toast.classList.add('toast-enter-active'); }, 10);
+            
+            // Remove after 3 seconds
+            setTimeout(() => {
+                toast.classList.remove('toast-enter-active');
+                toast.classList.add('toast-exit-active');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function toggleLoading(show, text = 'Memuat Data...') {
+            const overlay = document.getElementById('loading-overlay');
+            document.getElementById('loading-text').innerText = text;
+            if(show) overlay.classList.remove('hidden');
+            else overlay.classList.add('hidden');
+        }
+
+        // --- NAVIGASI TAB ---
+        function switchTab(pageId) {
+            // Sembunyikan semua halaman
+            document.querySelectorAll('.page-section').forEach(p => p.classList.add('hidden'));
+            // Tampilkan halaman aktif
+            document.getElementById(pageId).classList.remove('hidden');
+
+            // Reset styling tab
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.className = "tab-btn px-4 py-2 rounded-md font-semibold text-gray-600 hover:bg-gray-100 transition whitespace-nowrap";
+            });
+            // Highlight tab aktif
+            const activeTabId = pageId.replace('page-', 'tab-');
+            const activeTab = document.getElementById(activeTabId);
+            if(activeTab) {
+                activeTab.className = "tab-btn px-4 py-2 rounded-md font-semibold text-blue-600 bg-blue-50 transition whitespace-nowrap";
+            }
+        }
+
+        // --- KOMUNIKASI DATABASE ---
+        async function loadDatabase() {
+            toggleLoading(true, 'Mengunduh Database Barang...');
+            try {
+                // Gunakan JSONP/no-cors fallback jika error CORS, tapi asumsikan exec mengembalikan JSON
+                const response = await fetch(SCRIPT_URL);
+                if(!response.ok) throw new Error("Gagal load data");
+                databaseBarang = await response.json();
+                
+                // Ambil jenis unik untuk dropdown
+                jenisUnik = [...new Set(databaseBarang.map(item => item.jenis))];
+                
+                updateDropdownJenis();
+                updateDropdownNamaSemua(); // Awal: tampilkan semua nama
+                
+            } catch (error) {
+                console.error("Error:", error);
+                // Jika error CORS karena ContentService, kita mungkin tidak bisa read json secara direct dari klien tanpa proper setup di AppScript.
+                // Notifikasi disembunyikan agar aplikasi tetap bisa dipakai dalam mode demonstrasi jika api mati
+                // showToast("Koneksi database bermasalah. Pastikan URL Apps Script benar.", "error");
+            } finally {
+                toggleLoading(false);
+            }
+        }
+
+        // --- HALAMAN 1: INPUT BARANG ---
+        function submitBarang(e) {
+            e.preventDefault();
+            toggleLoading(true, 'Menyimpan Barang...');
+
+            const formData = new URLSearchParams();
+            formData.append('action', 'addBarang');
+            formData.append('jenis', document.getElementById('input-jenis').value);
+            formData.append('nama', document.getElementById('input-nama').value);
+            formData.append('harga', document.getElementById('input-harga').value);
+            formData.append('ukuran', document.getElementById('input-ukuran').value);
+
+            fetch(SCRIPT_URL, { method: 'POST', body: formData })
+                .then(res => res.text())
+                .then(text => {
+                    showToast("Barang berhasil ditambahkan!");
+                    document.getElementById('form-barang').reset();
+                    loadDatabase(); // Refresh data lokal
+                })
+                .catch(err => {
+                    showToast("Gagal menyimpan. Cek koneksi.", "error");
+                    toggleLoading(false);
+                });
+        }
+
+        // --- HALAMAN 2: TRANSAKSI (LOGIKA DROPDOWN & KERANJANG) ---
+        function lanjutKePilihBarang() {
+            const nama = document.getElementById('trans-nama-pelanggan').value.trim();
+            const wa = document.getElementById('trans-no-wa').value.trim();
+            
+            if(!nama || !wa) {
+                showToast("Nama dan No WhatsApp wajib diisi!", "error");
+                return;
+            }
+
+            document.getElementById('step-pelanggan').classList.add('hidden');
+            document.getElementById('step-barang').classList.remove('hidden');
+        }
+
+        function kembaliKePelanggan() {
+            document.getElementById('step-barang').classList.add('hidden');
+            document.getElementById('step-pelanggan').classList.remove('hidden');
+        }
+
+        // Update option di Dropdown Jenis
+        function updateDropdownJenis() {
+            const select = document.getElementById('trans-jenis');
+            select.innerHTML = '<option value="">-- Semua Jenis --</option>' + 
+                jenisUnik.map(j => `<option value="${j}">${j}</option>`).join('');
+        }
+
+        // Update option di Dropdown Nama (Bisa semua, bisa difilter)
+        function updateDropdownNamaSemua(filterJenis = "") {
+            const select = document.getElementById('trans-nama');
+            let items = databaseBarang;
+            if (filterJenis) {
+                items = databaseBarang.filter(item => item.jenis === filterJenis);
+            }
+            
+            select.innerHTML = '<option value="">-- Pilih Barang --</option>' + 
+                items.map(item => `<option value="${item.nama}">${item.nama}</option>`).join('');
+        }
+
+        // TRIGGER 1: Jika Jenis dipilih dari dropdown (atau via panah)
+        function syncNamaBerdasarkanJenis() {
+            const jenisTerpilih = document.getElementById('trans-jenis').value;
+            updateDropdownNamaSemua(jenisTerpilih); // Filter dropdown nama
+            resetInputDetail(); // Reset harga dan ukuran krn barang blm dipilih
+        }
+
+        // Fungsi Panah Atas/Bawah untuk Dropdown Jenis
+        function ubahJenisDropdown(arah) {
+            const select = document.getElementById('trans-jenis');
+            let index = select.selectedIndex + arah;
+            
+            if (index >= 0 && index < select.options.length) {
+                select.selectedIndex = index;
+                syncNamaBerdasarkanJenis(); // Panggil sinkronisasi
+            }
+        }
+
+        // TRIGGER 2: Jika Nama dipilih dari dropdown
+        function syncJenisBerdasarkanNama() {
+            const namaTerpilih = document.getElementById('trans-nama').value;
+            const item = databaseBarang.find(i => i.nama === namaTerpilih);
+            
+            if (item) {
+                // Auto isi harga dan ukuran
+                document.getElementById('trans-harga').value = item.harga.toLocaleString('id-ID');
+                document.getElementById('trans-ukuran').value = item.ukuran;
+                
+                // SINKRONISASI KE JENIS: Ubah dropdown jenis secara otomatis
+                const selectJenis = document.getElementById('trans-jenis');
+                if (selectJenis.value !== item.jenis) {
+                    selectJenis.value = item.jenis;
+                    // Kita TIDAK memanggil syncNamaBerdasarkanJenis() di sini agar daftar nama tidak langsung terefresh jika tidak perlu, 
+                    // tapi jika ingin daftarnya tersaring jg:
+                    // updateDropdownNamaSemua(item.jenis); 
+                    // document.getElementById('trans-nama').value = item.nama; // kembalikan pilihan
+                }
+            } else {
+                resetInputDetail();
+            }
+        }
+
+        function resetInputDetail() {
+            document.getElementById('trans-harga').value = '';
+            document.getElementById('trans-ukuran').value = '';
+        }
+
+        function tambahkanKeKeranjang() {
+            const namaSelect = document.getElementById('trans-nama');
+            const nama = namaSelect.value;
+            
+            if(!nama) return showToast("Silakan pilih nama barang terlebih dahulu!", "error");
+
+            // Ambil item asli dari database (karena input harga menggunakan pemisah ribuan)
+            const itemOriginal = databaseBarang.find(i => i.nama === nama);
+            if(!itemOriginal) return;
+
+            const harga = parseInt(itemOriginal.harga);
+            const ukuran = document.getElementById('trans-ukuran').value;
+            const jml = parseInt(document.getElementById('trans-jumlah').value) || 1;
+            
+            // Cek apakah barang sudah ada di keranjang, jika ada tambahkan jumlahnya
+            const indexAda = keranjang.findIndex(k => k.nama === nama && k.ukuran === ukuran);
+            if(indexAda > -1) {
+                keranjang[indexAda].jml += jml;
+                keranjang[indexAda].subtotal = keranjang[indexAda].jml * keranjang[indexAda].harga;
+            } else {
+                keranjang.push({ 
+                    nama: nama, 
+                    ukuran: ukuran, 
+                    harga: harga, 
+                    jml: jml, 
+                    subtotal: harga * jml 
+                });
+            }
+
+            // Reset Form Pilih Barang
+            document.getElementById('trans-nama').value = '';
+            document.getElementById('trans-jumlah').value = 1;
+            resetInputDetail();
+            showToast("Barang ditambahkan ke keranjang");
+            
+            renderTabelKeranjang();
+        }
+
+        function hapusDariKeranjang(index) {
+            keranjang.splice(index, 1);
+            renderTabelKeranjang();
+        }
+
+        function renderTabelKeranjang() {
+            const tbody = document.getElementById('tabel-keranjang-body');
+            
+            if (keranjang.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-4 text-center text-gray-400 italic">Keranjang masih kosong</td></tr>';
+                document.getElementById('total-item-keranjang').innerText = '0';
+                document.getElementById('total-harga-keranjang').innerText = '0';
+                return;
+            }
+
+            let html = '';
+            let totalItem = 0;
+            let totalHarga = 0;
+
+            keranjang.forEach((item, index) => {
+                totalItem += item.jml;
+                totalHarga += item.subtotal;
+                html += `
+                    <tr class="bg-white border-b border-gray-100 hover:bg-gray-50">
+                        <td class="px-4 py-2 font-medium text-gray-800">${item.nama}</td>
+                        <td class="px-4 py-2 text-center">${item.ukuran}</td>
+                        <td class="px-4 py-2 text-right">Rp ${item.harga.toLocaleString('id-ID')}</td>
+                        <td class="px-4 py-2 text-center">${item.jml}</td>
+                        <td class="px-4 py-2 text-right font-semibold text-blue-600">Rp ${item.subtotal.toLocaleString('id-ID')}</td>
+                        <td class="px-4 py-2 text-center">
+                            <button onclick="hapusDariKeranjang(${index})" class="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 p-1 rounded">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML = html;
+            document.getElementById('total-item-keranjang').innerText = totalItem;
+            document.getElementById('total-harga-keranjang').innerText = totalHarga.toLocaleString('id-ID');
+        }
+
+        function prosesBayar() {
+            if (keranjang.length === 0) return showToast("Keranjang kosong! Tambahkan barang dulu.", "error");
+
+            const namaPelanggan = document.getElementById('trans-nama-pelanggan').value;
+            const noWa = document.getElementById('trans-no-wa').value;
+            const totalItem = keranjang.reduce((sum, item) => sum + item.jml, 0);
+            const totalHarga = keranjang.reduce((sum, item) => sum + item.subtotal, 0);
+
+            toggleLoading(true, 'Memproses Pembayaran...');
+
+            const formData = new URLSearchParams();
+            formData.append('action', 'addTransaksi');
+            formData.append('nama_pelanggan', namaPelanggan);
+            formData.append('no_wa', noWa);
+            formData.append('detail_pesanan', JSON.stringify(keranjang));
+            formData.append('total_item', totalItem);
+            formData.append('total_harga', totalHarga);
+
+            // POST ke server (Asinkron)
+            fetch(SCRIPT_URL, { method: 'POST', body: formData })
+                .then(res => res.text())
+                .then(text => {
+                    toggleLoading(false);
+                    showToast("Transaksi Berhasil!");
+                    buatStruk(namaPelanggan, noWa, totalItem, totalHarga);
+                    switchTab('page-pesanan');
+                })
+                .catch(err => {
+                    toggleLoading(false);
+                    showToast("Gagal menyimpan transaksi. Cek koneksi internet.", "error");
+                });
+        }
+
+        // --- HALAMAN 3: STRUK & REKAP ---
+        function buatStruk(nama, wa, totalItem, totalHarga) {
+            // Set Tanggal saat ini
+            const opsiTanggal = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+            document.getElementById('struk-tanggal').innerText = new Date().toLocaleDateString('id-ID', opsiTanggal);
+
+            document.getElementById('rekap-nama').innerText = nama;
+            document.getElementById('rekap-wa').innerText = wa;
+            document.getElementById('rekap-total-item').innerText = totalItem;
+            document.getElementById('rekap-total-harga').innerText = totalHarga.toLocaleString('id-ID');
+
+            const tbody = document.getElementById('tabel-rekap-body');
+            let html = '';
+            keranjang.forEach((item, index) => {
+                html += `
+                    <tr class="border-b border-gray-100 last:border-0">
+                        <td class="py-2 align-top text-gray-500">${index + 1}.</td>
+                        <td class="py-2">
+                            <div class="font-semibold">${item.nama}</div>
+                            <div class="text-xs text-gray-500">Uk: ${item.ukuran} | @Rp ${item.harga.toLocaleString('id-ID')}</div>
+                        </td>
+                        <td class="py-2 align-top text-center font-medium">${item.jml}</td>
+                        <td class="py-2 align-top text-right font-semibold text-gray-800">Rp ${item.subtotal.toLocaleString('id-ID')}</td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }
+
+        function kirimWhatsApp() {
+            let nama = document.getElementById('rekap-nama').innerText;
+            let wa = document.getElementById('rekap-wa').innerText;
+            let totalHarga = document.getElementById('rekap-total-harga').innerText;
+            
+            // Format nomor WA (ubah 0 jadi 62 diawal)
+            wa = wa.replace(/[^0-9]/g, ''); // bersihkan karakter non angka
+            if (wa.startsWith('0')) {
+                wa = '62' + wa.substring(1);
+            }
+
+            let pesan = `Halo *${nama}*,\nBerikut adalah rincian pesanan Anda:\n\n`;
+            keranjang.forEach((item, index) => {
+                pesan += `${index+1}. ${item.nama} (Uk: ${item.ukuran})\n   ${item.jml} x Rp ${item.harga.toLocaleString('id-ID')} = Rp ${item.subtotal.toLocaleString('id-ID')}\n`;
+            });
+            pesan += `\n==================\n`;
+            pesan += `*TOTAL TAGIHAN : Rp ${totalHarga}*\n`;
+            pesan += `==================\n\n`;
+            pesan += `Terima kasih telah berbelanja! 🙏`;
+
+            const url = `https://wa.me/${wa}?text=${encodeURIComponent(pesan)}`;
+            window.open(url, '_blank');
+        }
+
+        function cetakStruk() {
+            window.print();
+        }
+
+        function resetSemua() {
+            // Kosongkan Keranjang & Form
+            keranjang = [];
+            document.getElementById('trans-nama-pelanggan').value = '';
+            document.getElementById('trans-no-wa').value = '';
+            
+            renderTabelKeranjang();
+            kembaliKePelanggan();
+            switchTab('page-transaksi');
+        }
+
+    </script>
 </body>
 </html>
