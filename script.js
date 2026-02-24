@@ -1,14 +1,14 @@
 // --- KONFIGURASI URL APPS SCRIPT ---
-// URL ini sudah diisi sesuai permintaan Anda.
+// PENTING: Ganti URL di bawah ini dengan URL Web App (Exec) terbaru Anda!
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzX_vVW7xQFa1PkDqSPl9UFgUEZMMiisd12q8NNVDSEhdeXBN90y9vkDb0D49jwuhsxyQ/exec';
 
 // --- STATE APLIKASI ---
-let databaseBarang = [];
-let keranjang = [];
-let jenisUnik = [];
-let riwayatTransaksi = []; 
-let currentViewedTx = null;
-let editingTxId = null;
+let databaseBarang = [], keranjang = [], jenisUnik = [], riwayatTransaksi = []; 
+let currentViewedTx = null, editingTxId = null;
+
+// --- STATE DASHBOARD (BARU) ---
+let allSoldItems = []; // Menyimpan semua item terjual untuk di-filter
+let chartJenisBarang, chartTopProduk; // Instance untuk grafik
 
 // --- INISIALISASI ---
 window.onload = () => {
@@ -69,61 +69,203 @@ function switchTab(pageId) {
     if(activeTab) {
         activeTab.className = "tab-btn px-4 py-2 rounded-md font-semibold text-blue-600 bg-blue-50 transition whitespace-nowrap";
     }
+
+    // Jika tab dashboard dibuka, muat datanya untuk pertama kali
+    if (pageId === 'page-dashboard' && allSoldItems.length === 0) {
+        loadDashboardData();
+    }
 }
 
-// --- KOMUNIKASI DATABASE (DENGAN MODE DEBUGGING) ---
+// --- FUNGSI-FUNGSI DASHBOARD (BARU) ---
+
+async function loadDashboardData() {
+    toggleLoading(true, "Mengambil data dashboard...");
+    try {
+        const url = `${SCRIPT_URL}?action=getDashboardData&v=${new Date().getTime()}`;
+        const response = await fetch(url);
+        if (!response.ok) throw new Error("Gagal terhubung ke server");
+        
+        const result = await response.json();
+        if (result.status === 'error') throw new Error(result.message);
+
+        allSoldItems = result.data;
+        
+        populateDashboardFilters();
+        applyDashboardFilters();
+
+    } catch (error) {
+        showToast("Gagal memuat dashboard: " + error.message, "error");
+    } finally {
+        toggleLoading(false);
+    }
+}
+
+function populateDashboardFilters() {
+    const jenisSet = new Set(allSoldItems.map(item => item.jenis));
+    const ukuranSet = new Set(allSoldItems.map(item => item.ukuran));
+
+    const filterJenis = document.getElementById('filter-jenis');
+    const filterUkuran = document.getElementById('filter-ukuran');
+
+    filterJenis.innerHTML = '<option value="">Semua Jenis</option>';
+    jenisSet.forEach(jenis => filterJenis.innerHTML += `<option value="${jenis}">${jenis}</option>`);
+
+    filterUkuran.innerHTML = '<option value="">Semua Ukuran</option>';
+    ukuranSet.forEach(ukuran => filterUkuran.innerHTML += `<option value="${ukuran}">${ukuran}</option>`);
+}
+
+function applyDashboardFilters() {
+    const jenisValue = document.getElementById('filter-jenis').value;
+    const ukuranValue = document.getElementById('filter-ukuran').value;
+    const pelangganValue = document.getElementById('filter-pelanggan').value.toLowerCase();
+
+    let filteredItems = allSoldItems.filter(item => {
+        const jenisMatch = !jenisValue || item.jenis === jenisValue;
+        const ukuranMatch = !ukuranValue || item.ukuran === ukuranValue;
+        const pelangganMatch = !pelangganValue || item.pelanggan.toLowerCase().includes(pelangganValue);
+        return jenisMatch && ukuranMatch && pelangganMatch;
+    });
+
+    const summary = {
+        totalPendapatan: 0,
+        totalBarang: 0,
+        produkTerlaris: '-',
+        penjualanPerJenis: {},
+        penjualanPerProduk: {},
+        transaksi: new Set()
+    };
+
+    filteredItems.forEach(item => {
+        summary.totalPendapatan += item.subtotal;
+        summary.totalBarang += item.jml;
+        summary.penjualanPerJenis[item.jenis] = (summary.penjualanPerJenis[item.jenis] || 0) + item.subtotal;
+        summary.penjualanPerProduk[item.nama] = (summary.penjualanPerProduk[item.nama] || 0) + item.jml;
+        summary.transaksi.add(item.pelanggan);
+    });
+    
+    summary.totalTransaksi = summary.transaksi.size;
+    const sortedProduk = Object.entries(summary.penjualanPerProduk).sort((a, b) => b[1] - a[1]);
+    if (sortedProduk.length > 0) {
+        summary.produkTerlaris = sortedProduk[0][0];
+    }
+    
+    renderDashboard(summary);
+}
+
+function resetDashboardFilters() {
+    document.getElementById('filter-jenis').value = '';
+    document.getElementById('filter-ukuran').value = '';
+    document.getElementById('filter-pelanggan').value = '';
+    applyDashboardFilters();
+}
+
+function renderDashboard(summary) {
+    document.getElementById('db-total-pendapatan').textContent = `Rp ${summary.totalPendapatan.toLocaleString('id-ID')}`;
+    document.getElementById('db-total-barang').textContent = summary.totalBarang.toLocaleString('id-ID');
+    document.getElementById('db-total-transaksi').textContent = summary.totalTransaksi.toLocaleString('id-ID');
+    document.getElementById('db-produk-terlaris').textContent = summary.produkTerlaris;
+    renderChartJenis(summary.penjualanPerJenis);
+    renderChartTopProduk(summary.penjualanPerProduk);
+}
+
+function getRandomColor() {
+    const r = Math.floor(Math.random() * 200);
+    const g = Math.floor(Math.random() * 200);
+    const b = Math.floor(Math.random() * 200);
+    return `rgba(${r}, ${g}, ${b}, 0.7)`;
+}
+
+function renderChartJenis(data) {
+    const ctx = document.getElementById('chart-jenis-barang').getContext('2d');
+    const labels = Object.keys(data);
+    const values = Object.values(data);
+    const colors = labels.map(() => getRandomColor());
+
+    if (chartJenisBarang) {
+        chartJenisBarang.data.labels = labels;
+        chartJenisBarang.data.datasets[0].data = values;
+        chartJenisBarang.data.datasets[0].backgroundColor = colors;
+        chartJenisBarang.update();
+    } else {
+        chartJenisBarang = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Pendapatan', data: values, backgroundColor: colors,
+                    borderColor: '#fff', borderWidth: 2
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: true }
+        });
+    }
+}
+
+function renderChartTopProduk(data) {
+    const ctx = document.getElementById('chart-top-produk').getContext('2d');
+    const sortedProduk = Object.entries(data).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    
+    const labels = sortedProduk.map(item => item[0]);
+    const values = sortedProduk.map(item => item[1]);
+    const colors = labels.map(() => getRandomColor());
+
+    if (chartTopProduk) {
+        chartTopProduk.data.labels = labels;
+        chartTopProduk.data.datasets[0].data = values;
+        chartTopProduk.data.datasets[0].backgroundColor = colors;
+        chartTopProduk.update();
+    } else {
+        chartTopProduk = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Jumlah Terjual', data: values, backgroundColor: colors,
+                    borderColor: colors.map(c => c.replace('0.7', '1')), borderWidth: 1
+                }]
+            },
+            options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } } }
+        });
+    }
+}
+
+
+// --- FUNGSI-FUNGSI UTAMA APLIKASI (TETAP SAMA) ---
+
 async function loadDatabase() {
     toggleLoading(true, 'Mengunduh Data Database...');
     try {
         const urlWithCacheBuster = SCRIPT_URL + '?v=' + new Date().getTime();
-        
         const response = await fetch(urlWithCacheBuster);
         
-        if(!response.ok) {
-            throw new Error(`Koneksi Gagal: ${response.status} ${response.statusText}`);
-        }
+        if(!response.ok) throw new Error(`Koneksi Gagal: ${response.status} ${response.statusText}`);
         
         const rawText = await response.text();
 
-        if (!rawText || rawText.trim() === "") {
-            throw new Error("Server mengembalikan respon kosong. Pastikan Anda melakukan 'New Deployment' dan tidak ada error di script.");
-        }
+        if (!rawText || rawText.trim() === "") throw new Error("Server mengembalikan respon kosong. Lakukan 'New Deployment' pada Apps Script.");
 
         let data;
         try {
             data = JSON.parse(rawText);
         } catch (jsonError) {
-            if (rawText.includes("<!DOCTYPE html>")) {
-                throw new Error("Terblokir CORS/Otentikasi. Pastikan akses Deployment adalah 'Anyone'.");
-            }
-            throw new Error("Format data dari server bukan JSON yang valid. Cek Console untuk detail.");
+            if (rawText.includes("<!DOCTYPE html>")) throw new Error("Terblokir CORS. Pastikan akses Deployment adalah 'Anyone'.");
+            throw new Error("Format data dari server bukan JSON. Cek Console.");
         }
         
-        if (data.status === 'error') {
-            throw new Error(data.message || "Terjadi kesalahan pada Server Apps Script.");
-        }
+        if (data.status === 'error') throw new Error(data.message);
         
-        if (Array.isArray(data)) {
-            databaseBarang = data;
-        } else {
-            databaseBarang = data.barang || [];
-            riwayatTransaksi = data.pesanan || [];
-        }
+        databaseBarang = data.barang || [];
+        riwayatTransaksi = data.pesanan || [];
         
-        if (databaseBarang.length === 0) {
-            showToast("Koneksi Berhasil, tapi Data Barang di Spreadsheet Kosong.", "info");
-        } else {
-            showToast(`Berhasil memuat ${databaseBarang.length} data barang.`);
-        }
+        if (databaseBarang.length === 0) showToast("Koneksi Berhasil, tapi Data Barang di Spreadsheet Kosong.", "info");
+        else showToast(`Berhasil memuat ${databaseBarang.length} data barang.`);
 
         jenisUnik = [...new Set(databaseBarang.map(item => item.jenis).filter(Boolean))];
         updateDropdownJenis();
         updateDropdownNamaSemua();
         updateDropdownRiwayat();
         
-        if(riwayatTransaksi.length > 0) {
-            tampilkanStruk(riwayatTransaksi[0]);
-        }
+        if(riwayatTransaksi.length > 0) tampilkanStruk(riwayatTransaksi[0]);
         
     } catch (error) {
         console.error("Load DB Error:", error);
@@ -133,11 +275,8 @@ async function loadDatabase() {
     }
 }
 
-
-// --- HALAMAN 1: INPUT BARANG ---
 function submitBarang(e) {
     e.preventDefault();
-    
     const jenisInput = document.getElementById('input-jenis').value.trim();
     const namaInput = document.getElementById('input-nama').value.trim();
     const hargaInput = document.getElementById('input-harga').value;
@@ -150,28 +289,19 @@ function submitBarang(e) {
     );
 
     let actionType = 'addBarang';
-
     if (existingItem) {
-        const isConfirmed = confirm(`Data barang sudah tersedia (Harga saat ini: Rp ${existingItem.harga.toLocaleString('id-ID')}).\nApakah Anda ingin memperbarui harga barang menjadi Rp ${parseInt(hargaInput).toLocaleString('id-ID')}?`);
-        if (!isConfirmed) return; 
+        if (!confirm(`Barang sudah ada (Rp ${existingItem.harga.toLocaleString('id-ID')}).\nPerbarui harga menjadi Rp ${parseInt(hargaInput).toLocaleString('id-ID')}?`)) return; 
         actionType = 'editBarang'; 
     }
 
-    toggleLoading(true, existingItem ? 'Memperbarui Harga Barang...' : 'Menyimpan Barang...');
-
-    const formData = new URLSearchParams();
-    formData.append('action', actionType);
-    formData.append('jenis', jenisInput);
-    formData.append('nama', namaInput);
-    formData.append('harga', hargaInput);
-    formData.append('ukuran', ukuranInput);
+    toggleLoading(true, existingItem ? 'Memperbarui Harga...' : 'Menyimpan Barang...');
+    const formData = new URLSearchParams({ action: actionType, jenis: jenisInput, nama: namaInput, harga: hargaInput, ukuran: ukuranInput });
 
     fetch(SCRIPT_URL, { method: 'POST', body: formData })
         .then(res => res.text())
         .then(text => {
             if (text.toLowerCase().includes("error")) throw new Error(text);
-            
-            showToast(existingItem ? "Harga barang berhasil diperbarui!" : "Barang berhasil ditambahkan!");
+            showToast(existingItem ? "Harga berhasil diperbarui!" : "Barang berhasil ditambahkan!");
             document.getElementById('form-barang').reset();
             loadDatabase();
         })
@@ -181,16 +311,10 @@ function submitBarang(e) {
         });
 }
 
-// --- HALAMAN 2: TRANSAKSI (LOGIKA DROPDOWN & KERANJANG) ---
 function lanjutKePilihBarang() {
     const nama = document.getElementById('trans-nama-pelanggan').value.trim();
     const wa = document.getElementById('trans-no-wa').value.trim();
-    
-    if(!nama || !wa) {
-        showToast("Nama dan No WhatsApp wajib diisi!", "error");
-        return;
-    }
-
+    if(!nama || !wa) return showToast("Nama dan No WhatsApp wajib diisi!", "error");
     document.getElementById('step-pelanggan').classList.add('hidden');
     document.getElementById('step-barang').classList.remove('hidden');
 }
@@ -202,37 +326,25 @@ function kembaliKePelanggan() {
 
 function updateDropdownJenis() {
     const select = document.getElementById('trans-jenis');
-    if (!select) return;
-    
-    select.innerHTML = '<option value="">-- Semua Jenis --</option>' + 
-        jenisUnik.map(j => `<option value="${j}">${j}</option>`).join('');
+    if (select) select.innerHTML = '<option value="">-- Semua Jenis --</option>' + jenisUnik.map(j => `<option value="${j}">${j}</option>`).join('');
 }
 
 function updateDropdownNamaSemua(filterJenis = "") {
     const select = document.getElementById('trans-nama');
     if (!select) return;
-
-    let items = databaseBarang;
-    if (filterJenis) {
-        items = databaseBarang.filter(item => item.jenis === filterJenis);
-    }
-    
+    let items = filterJenis ? databaseBarang.filter(item => item.jenis === filterJenis) : databaseBarang;
     const namaUnik = [...new Set(items.map(item => item.nama).filter(Boolean))];
-    
-    select.innerHTML = '<option value="">-- Pilih Barang --</option>' + 
-        namaUnik.map(nama => `<option value="${nama}">${nama}</option>`).join('');
+    select.innerHTML = '<option value="">-- Pilih Barang --</option>' + namaUnik.map(nama => `<option value="${nama}">${nama}</option>`).join('');
 }
 
 function syncNamaBerdasarkanJenis() {
-    const jenisTerpilih = document.getElementById('trans-jenis').value;
-    updateDropdownNamaSemua(jenisTerpilih); 
+    updateDropdownNamaSemua(document.getElementById('trans-jenis').value); 
     resetInputDetail(); 
 }
 
 function ubahJenisDropdown(arah) {
     const select = document.getElementById('trans-jenis');
     let index = select.selectedIndex + arah;
-    
     if (index >= 0 && index < select.options.length) {
         select.selectedIndex = index;
         syncNamaBerdasarkanJenis(); 
@@ -242,16 +354,13 @@ function ubahJenisDropdown(arah) {
 function syncJenisBerdasarkanNama() {
     const namaTerpilih = document.getElementById('trans-nama').value;
     const selectUkuran = document.getElementById('trans-ukuran');
-    
     if (namaTerpilih) {
         const variasiBarang = databaseBarang.filter(i => i.nama === namaTerpilih);
         selectUkuran.innerHTML = variasiBarang.map(item => `<option value="${item.ukuran}">${item.ukuran}</option>`).join('');
-        
         const selectJenis = document.getElementById('trans-jenis');
         if (variasiBarang.length > 0 && selectJenis.value !== variasiBarang[0].jenis) {
             selectJenis.value = variasiBarang[0].jenis;
         }
-
         syncHargaBerdasarkanUkuran();
     } else {
         resetInputDetail();
@@ -261,12 +370,8 @@ function syncJenisBerdasarkanNama() {
 function syncHargaBerdasarkanUkuran() {
     const namaTerpilih = document.getElementById('trans-nama').value;
     const ukuranTerpilih = document.getElementById('trans-ukuran').value;
-    
     const item = databaseBarang.find(i => i.nama === namaTerpilih && i.ukuran === ukuranTerpilih);
-    
-    if (item) {
-        document.getElementById('trans-harga').value = item.harga.toLocaleString('id-ID');
-    }
+    if (item) document.getElementById('trans-harga').value = item.harga.toLocaleString('id-ID');
 }
 
 function ubahJumlah(delta) {
@@ -284,36 +389,21 @@ function resetInputDetail() {
 }
 
 function tambahkanKeKeranjang() {
-    const namaSelect = document.getElementById('trans-nama');
-    const nama = namaSelect.value;
+    const nama = document.getElementById('trans-nama').value;
     const ukuran = document.getElementById('trans-ukuran').value;
-    
-    if(!nama) return showToast("Silakan pilih nama barang terlebih dahulu!", "error");
-
+    if(!nama) return showToast("Silakan pilih nama barang!", "error");
     const itemOriginal = databaseBarang.find(i => i.nama === nama && i.ukuran === ukuran);
     if(!itemOriginal) return showToast("Data barang tidak valid.", "error");
 
     const harga = parseInt(itemOriginal.harga);
     const jml = parseInt(document.getElementById('trans-jumlah').value) || 1;
     
-    const indexAda = keranjang.findIndex(k => k.nama === nama && k.ukuran === ukuran);
-    if(indexAda > -1) {
-        return showToast("Barang dengan ukuran tersebut sudah ada di keranjang!", "error");
-    } else {
-        keranjang.push({ 
-            nama: nama, 
-            ukuran: ukuran, 
-            harga: harga, 
-            jml: jml, 
-            subtotal: harga * jml 
-        });
-    }
+    if(keranjang.some(k => k.nama === nama && k.ukuran === ukuran)) return showToast("Barang ini sudah ada di keranjang!", "error");
 
+    keranjang.push({ nama, ukuran, harga, jml, subtotal: harga * jml });
     document.getElementById('trans-nama').value = '';
-    document.getElementById('trans-jumlah').value = 1;
     resetInputDetail();
     showToast("Barang ditambahkan ke keranjang");
-    
     renderTabelKeranjang();
 }
 
@@ -324,7 +414,6 @@ function hapusDariKeranjang(index) {
 
 function renderTabelKeranjang() {
     const tbody = document.getElementById('tabel-keranjang-body');
-    
     if (keranjang.length === 0) {
         tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-4 text-center text-gray-400 italic">Keranjang masih kosong</td></tr>';
         document.getElementById('total-item-keranjang').innerText = '0';
@@ -332,14 +421,11 @@ function renderTabelKeranjang() {
         return;
     }
 
-    let html = '';
-    let totalItem = 0;
-    let totalHarga = 0;
-
-    keranjang.forEach((item, index) => {
+    let totalItem = 0, totalHarga = 0;
+    tbody.innerHTML = keranjang.map((item, index) => {
         totalItem += item.jml;
         totalHarga += item.subtotal;
-        html += `
+        return `
             <tr class="bg-white border-b border-gray-100 hover:bg-gray-50">
                 <td class="px-4 py-2 font-medium text-gray-800">${item.nama}</td>
                 <td class="px-4 py-2 text-center">${item.ukuran}</td>
@@ -347,28 +433,22 @@ function renderTabelKeranjang() {
                 <td class="px-4 py-2 text-center">${item.jml}</td>
                 <td class="px-4 py-2 text-right font-semibold text-blue-600">Rp ${item.subtotal.toLocaleString('id-ID')}</td>
                 <td class="px-4 py-2 text-center">
-                    <button onclick="hapusDariKeranjang(${index})" class="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 p-1 rounded">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                    </button>
+                    <button onclick="hapusDariKeranjang(${index})" class="text-red-500 hover:text-red-700 p-1 rounded"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
                 </td>
-            </tr>
-        `;
-    });
-
-    tbody.innerHTML = html;
+            </tr>`;
+    }).join('');
     document.getElementById('total-item-keranjang').innerText = totalItem;
     document.getElementById('total-harga-keranjang').innerText = totalHarga.toLocaleString('id-ID');
 }
 
 function prosesBayar() {
-    if (keranjang.length === 0) return showToast("Keranjang kosong! Tambahkan barang dulu.", "error");
+    if (keranjang.length === 0) return showToast("Keranjang kosong!", "error");
 
+    toggleLoading(true, 'Memproses Pembayaran...');
     const namaPelanggan = document.getElementById('trans-nama-pelanggan').value;
     const noWa = document.getElementById('trans-no-wa').value;
     const totalItem = keranjang.reduce((sum, item) => sum + item.jml, 0);
     const totalHarga = keranjang.reduce((sum, item) => sum + item.subtotal, 0);
-
-    toggleLoading(true, 'Memproses Pembayaran...');
 
     const actionType = editingTxId ? 'editTransaksi' : 'addTransaksi';
     const txId = editingTxId || ("TX_" + Date.now().toString());
@@ -377,36 +457,20 @@ function prosesBayar() {
     const currentTx = {
         id: txId,
         tanggal: editingTxId && currentViewedTx ? currentViewedTx.tanggal : new Date().toLocaleDateString('id-ID', opsiTanggal), 
-        nama: namaPelanggan,
-        wa: noWa,
-        items: [...keranjang],
-        totalItem: totalItem,
-        totalHarga: totalHarga
+        nama: namaPelanggan, wa: noWa, items: [...keranjang], totalItem, totalHarga
     };
 
-    const formData = new URLSearchParams();
-    formData.append('action', actionType);
-    formData.append('id', txId);
-    formData.append('nama_pelanggan', namaPelanggan);
-    formData.append('no_wa', noWa);
-    formData.append('detail_pesanan', JSON.stringify(keranjang));
-    formData.append('total_item', totalItem);
-    formData.append('total_harga', totalHarga);
+    const formData = new URLSearchParams({
+        action: actionType, id: txId, nama_pelanggan: namaPelanggan, no_wa: noWa, 
+        detail_pesanan: JSON.stringify(keranjang), total_item: totalItem, total_harga: totalHarga
+    });
 
     fetch(SCRIPT_URL, { method: 'POST', body: formData })
         .then(res => res.text())
         .then(text => {
             toggleLoading(false);
+            if (text.toLowerCase().includes("error")) throw new Error(text);
             
-            if (text.includes("ID tidak ditemukan") || (actionType === 'editTransaksi' && !text.includes("diperbarui"))) {
-                let errorMsg = text.includes("ID tidak ditemukan") 
-                    ? "Gagal: Pesanan lama ini belum memiliki ID di Spreadsheet." 
-                    : "Gagal: Respon server tidak valid.";
-                showToast(errorMsg, "error");
-                loadDatabase(); 
-                return;
-            }
-
             if(editingTxId) {
                 const index = riwayatTransaksi.findIndex(t => t.id === editingTxId);
                 if(index > -1) riwayatTransaksi[index] = currentTx;
@@ -415,37 +479,33 @@ function prosesBayar() {
             }
             updateDropdownRiwayat();
 
-            showToast(editingTxId ? "Pesanan Berhasil Diperbarui!" : "Transaksi Berhasil Disimpan!");
+            showToast(editingTxId ? "Pesanan Diperbarui!" : "Transaksi Disimpan!");
             tampilkanStruk(currentTx);
             switchTab('page-pesanan');
             editingTxId = null; 
         })
         .catch(err => {
             toggleLoading(false);
-            showToast("Gagal menyimpan transaksi: " + err.message, "error");
+            showToast("Gagal menyimpan: " + err.message, "error");
         });
 }
 
-// --- HALAMAN 3: STRUK & REKAP ---
 function updateDropdownRiwayat() {
     const select = document.getElementById('dropdown-riwayat');
     const areaStruk = document.getElementById('area-struk');
     
     if(riwayatTransaksi.length === 0) {
         select.innerHTML = '<option value="">-- Belum ada riwayat --</option>';
-        areaStruk.classList.add('hidden'); 
+        if (areaStruk) areaStruk.classList.add('hidden'); 
         return;
     }
     
-    areaStruk.classList.remove('hidden');
-    select.innerHTML = riwayatTransaksi.map(tx => 
-        `<option value="${tx.id}">${tx.tanggal} - ${tx.nama}</option>`
-    ).join('');
+    if (areaStruk) areaStruk.classList.remove('hidden');
+    select.innerHTML = riwayatTransaksi.map(tx => `<option value="${tx.id}">${tx.tanggal} - ${tx.nama}</option>`).join('');
 }
 
 function gantiRiwayat() {
-    const id = document.getElementById('dropdown-riwayat').value;
-    const tx = riwayatTransaksi.find(t => t.id === id);
+    const tx = riwayatTransaksi.find(t => t.id === document.getElementById('dropdown-riwayat').value);
     if(tx) tampilkanStruk(tx);
 }
 
@@ -458,58 +518,40 @@ function tampilkanStruk(tx) {
     document.getElementById('rekap-total-harga').innerText = tx.totalHarga.toLocaleString('id-ID');
 
     const tbody = document.getElementById('tabel-rekap-body');
-    let html = '';
-    tx.items.forEach((item, index) => {
-        html += `
-            <tr class="border-b border-gray-100 last:border-0">
-                <td class="py-2 align-top text-gray-500">${index + 1}.</td>
-                <td class="py-2">
-                    <div class="font-semibold">${item.nama}</div>
-                    <div class="text-xs text-gray-500">Uk: ${item.ukuran} | @Rp ${item.harga.toLocaleString('id-ID')}</div>
-                </td>
-                <td class="py-2 align-top text-center font-medium">${item.jml}</td>
-                <td class="py-2 align-top text-right font-semibold text-gray-800">Rp ${item.subtotal.toLocaleString('id-ID')}</td>
-            </tr>
-        `;
-    });
-    tbody.innerHTML = html;
+    tbody.innerHTML = tx.items.map((item, index) => `
+        <tr class="border-b border-gray-100 last:border-0">
+            <td class="py-2 align-top text-gray-500">${index + 1}.</td>
+            <td class="py-2">
+                <div class="font-semibold">${item.nama}</div>
+                <div class="text-xs text-gray-500">Uk: ${item.ukuran} | @Rp ${item.harga.toLocaleString('id-ID')}</div>
+            </td>
+            <td class="py-2 align-top text-center font-medium">${item.jml}</td>
+            <td class="py-2 align-top text-right font-semibold text-gray-800">Rp ${item.subtotal.toLocaleString('id-ID')}</td>
+        </tr>
+    `).join('');
     
     document.getElementById('dropdown-riwayat').value = tx.id;
 }
 
 function kirimWhatsApp() {
-    if(!currentViewedTx) return showToast("Tidak ada data pesanan yang dipilih!", "error");
+    if(!currentViewedTx) return showToast("Pilih data pesanan dulu!", "error");
 
-    let nama = currentViewedTx.nama;
-    let wa = String(currentViewedTx.wa); 
-    let totalHarga = currentViewedTx.totalHarga.toLocaleString('id-ID');
-    
-    wa = wa.replace(/[^0-9]/g, ''); 
-    
-    if (wa.startsWith('0')) {
-        wa = '62' + wa.substring(1);
-    } else if (!wa.startsWith('62')) {
-        wa = '62' + wa;
-    }
+    let { nama, wa, totalHarga, items } = currentViewedTx;
+    wa = String(wa).replace(/[^0-9]/g, ''); 
+    if (wa.startsWith('0')) wa = '62' + wa.substring(1);
+    else if (!wa.startsWith('62')) wa = '62' + wa;
 
-    let pesan = `Halo *${nama}*,\nBerikut adalah rincian pesanan Anda dari toko kami:\n\n`;
-    currentViewedTx.items.forEach((item, index) => {
+    let pesan = `Halo *${nama}*,\nBerikut rincian pesanan Anda:\n\n`;
+    items.forEach((item, index) => {
         pesan += `${index+1}. ${item.nama} (Uk: ${item.ukuran})\n   ${item.jml} x Rp ${item.harga.toLocaleString('id-ID')} = Rp ${item.subtotal.toLocaleString('id-ID')}\n`;
     });
-    pesan += `\n==================\n`;
-    pesan += `*TOTAL TAGIHAN : Rp ${totalHarga}*\n`;
-    pesan += `==================\n\n`;
+    pesan += `\n==================\n*TOTAL TAGIHAN : Rp ${totalHarga.toLocaleString('id-ID')}*\n==================\n\n`;
     pesan += `Pembayaran dapat dilakukan secara tunai atau transfer\n\n`;
-    pesan += `Transfer dapat dilakukan melalui\n`;
-    pesan += `Seabank : 901355785479\n`;
-    pesan += `atau\n`;
-    pesan += `Shoppe pay/gopay : 081357432595`;
-    pesan += `Atas nama : Ummu Hayatin\n\n`;
-    pesan += `*Pastikan konfirmasi dengan mengirimkan bukti pembayaran.*\n\n`;
-    pesan += `Terima kasih banyak telah berbelanja, Semoga berkah! 🙏😊`;
+    pesan += `Transfer dapat dilakukan melalui\nSeabank : 901355785479\natau\nShopee pay/gopay : 081357432595\n`;
+    pesan += `Atas nama : Ummu Hayatin\n\n*Pastikan konfirmasi dengan mengirimkan bukti pembayaran.*\n\n`;
+    pesan += `Terima kasih banyak, Semoga berkah! 🙏😊`;
 
-    const url = `https://wa.me/${wa}?text=${encodeURIComponent(pesan)}`;
-    window.open(url, '_blank');
+    window.open(`https://wa.me/${wa}?text=${encodeURIComponent(pesan)}`, '_blank');
 }
 
 function cetakStruk() {
@@ -517,35 +559,23 @@ function cetakStruk() {
 }
 
 function editPesanan() {
-    if(!currentViewedTx) return showToast("Tidak ada data pesanan yang dipilih!", "error");
-    
+    if(!currentViewedTx) return showToast("Pilih data pesanan dulu!", "error");
     editingTxId = currentViewedTx.id;
-    
     document.getElementById('trans-nama-pelanggan').value = currentViewedTx.nama;
     document.getElementById('trans-no-wa').value = currentViewedTx.wa;
-    
     keranjang = JSON.parse(JSON.stringify(currentViewedTx.items));
-    
     renderTabelKeranjang();
     lanjutKePilihBarang(); 
     switchTab('page-transaksi');
-    
     showToast("Mode Edit: Silakan perbarui pesanan", "info");
 }
 
 function hapusPesanan() {
-    if(!currentViewedTx) return showToast("Tidak ada data pesanan yang dipilih!", "error");
-    
-    if(!confirm(`Apakah Anda yakin ingin MEMBATALKAN dan MENGHAPUS pesanan atas nama ${currentViewedTx.nama}?`)) {
-        return;
-    }
+    if(!currentViewedTx) return showToast("Pilih data pesanan dulu!", "error");
+    if(!confirm(`Yakin ingin MENGHAPUS pesanan atas nama ${currentViewedTx.nama}?`)) return;
 
-    const txId = currentViewedTx.id;
     toggleLoading(true, 'Menghapus Pesanan...');
-
-    const formData = new URLSearchParams();
-    formData.append('action', 'deleteTransaksi');
-    formData.append('id', txId);
+    const formData = new URLSearchParams({ action: 'deleteTransaksi', id: currentViewedTx.id });
 
     fetch(SCRIPT_URL, { method: 'POST', body: formData })
         .then(res => res.text())
@@ -553,7 +583,7 @@ function hapusPesanan() {
             toggleLoading(false);
             showToast("Pesanan berhasil dihapus!");
             
-            riwayatTransaksi = riwayatTransaksi.filter(t => t.id !== txId);
+            riwayatTransaksi = riwayatTransaksi.filter(t => t.id !== currentViewedTx.id);
             updateDropdownRiwayat();
             
             if(riwayatTransaksi.length > 0) {
@@ -574,7 +604,6 @@ function resetSemua() {
     editingTxId = null;
     document.getElementById('trans-nama-pelanggan').value = '';
     document.getElementById('trans-no-wa').value = '';
-    
     renderTabelKeranjang();
     kembaliKePelanggan();
     switchTab('page-transaksi');
