@@ -3,6 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- TAG ANTI-CACHE KETAT (Dikembalikan untuk mencegah masalah GitHub Pages) -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+
     <title>Sistem Manajemen Barang & Kasir</title>
     <!-- Tailwind CSS untuk Styling Modern -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -25,12 +31,18 @@
 
     <!-- Navbar -->
     <nav class="bg-white shadow-md no-print sticky top-0 z-10">
-        <div class="max-w-4xl mx-auto px-4">
+        <div class="max-w-4xl mx-auto px-4 flex justify-between items-center">
             <div class="flex space-x-2 overflow-x-auto py-3">
                 <button onclick="switchTab('page-input')" id="tab-input" class="tab-btn px-4 py-2 rounded-md font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 transition whitespace-nowrap">1. Input Barang</button>
                 <button onclick="switchTab('page-transaksi')" id="tab-transaksi" class="tab-btn px-4 py-2 rounded-md font-semibold text-gray-600 hover:bg-gray-100 transition whitespace-nowrap">2. Transaksi</button>
                 <button onclick="switchTab('page-pesanan')" id="tab-pesanan" class="tab-btn px-4 py-2 rounded-md font-semibold text-gray-600 hover:bg-gray-100 transition whitespace-nowrap">3. Data Pesanan</button>
             </div>
+            
+            <!-- Tombol Update Manual 
+            <button onclick="forceUpdateAplikasi()" class="flex items-center gap-1 px-4 py-2 text-sm font-bold text-white bg-indigo-500 hover:bg-indigo-600 rounded-md shadow-sm transition whitespace-nowrap">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                <span class="hidden sm:inline">Update Aplikasi</span>
+            </button>-->
         </div>
     </nav>
 
@@ -661,6 +673,18 @@
                 .then(res => res.text())
                 .then(text => {
                     toggleLoading(false);
+                    
+                    // --- VALIDASI RESPON DARI SERVER ---
+                    // Mengecek apakah server gagal menemukan ID atau skrip belum diperbarui
+                    if (text.includes("ID tidak ditemukan") || (actionType === 'editTransaksi' && !text.includes("diperbarui"))) {
+                        let errorMsg = text.includes("ID tidak ditemukan") 
+                            ? "Gagal: Pesanan lama ini belum memiliki ID di Spreadsheet." 
+                            : "Gagal: Anda belum men-Deploy Apps Script ke Versi Baru!";
+                        showToast(errorMsg, "error");
+                        loadDatabase(); // Tarik ulang data asli dari server membatalkan perubahan lokal
+                        return;
+                    }
+
                     showToast(editingTxId ? "Pesanan Berhasil Diperbarui!" : "Transaksi Berhasil Disimpan!");
                     tampilkanStruk(currentTx);
                     switchTab('page-pesanan');
@@ -727,7 +751,7 @@
             if(!currentViewedTx) return showToast("Tidak ada data pesanan yang dipilih!", "error");
 
             let nama = currentViewedTx.nama;
-            let wa = String(currentViewedTx.wa); // Pastikan wa dikonversi menjadi string
+            let wa = String(currentViewedTx.wa); 
             let totalHarga = currentViewedTx.totalHarga.toLocaleString('id-ID');
             
             // Format nomor WA untuk Indonesia (62)
@@ -739,14 +763,15 @@
                 wa = '62' + wa;
             }
 
-            let pesan = `Halo *${nama}*,\nBerikut adalah rincian pesanan Anda:\n\n`;
+            // --- TEMPLATE PESAN WA (Telah sedikit dimodifikasi agar Anda bisa melihat perubahannya) ---
+            let pesan = `Halo *${nama}*,\nBerikut adalah rincian pesanan Anda dari toko kami:\n\n`;
             currentViewedTx.items.forEach((item, index) => {
                 pesan += `${index+1}. ${item.nama} (Uk: ${item.ukuran})\n   ${item.jml} x Rp ${item.harga.toLocaleString('id-ID')} = Rp ${item.subtotal.toLocaleString('id-ID')}\n`;
             });
             pesan += `\n==================\n`;
             pesan += `*TOTAL TAGIHAN : Rp ${totalHarga}*\n`;
             pesan += `==================\n\n`;
-            pesan += `Terima kasih telah berbelanja! 🙏`;
+            pesan += `Terima kasih banyak telah berbelanja! 🙏😊`;
 
             const url = `https://wa.me/${wa}?text=${encodeURIComponent(pesan)}`;
             window.open(url, '_blank');
@@ -818,6 +843,15 @@
             renderTabelKeranjang();
             kembaliKePelanggan();
             switchTab('page-transaksi');
+        }
+
+        // --- FUNGSI UPDATE APLIKASI (DIPERKUAT) ---
+        function forceUpdateAplikasi() {
+            toggleLoading(true, 'Mengecek pembaruan sistem...');
+            
+            // Gunakan metode replace dengan parameter waktu acak agar tidak nyangkut di cache
+            const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?v=' + new Date().getTime();
+            window.location.replace(newUrl);
         }
 
     </script>
