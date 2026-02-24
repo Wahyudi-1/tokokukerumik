@@ -1,5 +1,5 @@
 // GANTI STRING INI DENGAN URL WEB APP GOOGLE APPS SCRIPT ANDA
-const SCRIPT_URL = 'URL_WEB_APP_ANDA_DISINI';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzY9KK11OFs5CGnntlB_b-DiRa_es8qAl9FUWjlsX-vLrYFAqX8SWBAfmAZDsteGtJnAA/exec';
 
 let databaseBarang = [];
 let keranjang = [];
