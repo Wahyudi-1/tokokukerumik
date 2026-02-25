@@ -21,15 +21,21 @@
 </head>
 <body class="bg-gray-100 font-sans text-gray-800 antialiased min-h-screen flex flex-col">
 
-    <!-- Navbar -->
+<!-- Navbar -->
     <nav class="bg-white shadow-md no-print sticky top-0 z-10">
-        <div class="max-w-4xl mx-auto px-4">
+        <div class="max-w-4xl mx-auto px-4 flex justify-between items-center">
             <div class="flex space-x-2 overflow-x-auto py-3">
                 <button onclick="switchTab('page-input')" id="tab-input" class="tab-btn px-4 py-2 rounded-md font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 transition whitespace-nowrap">1. Input Barang</button>
                 <button onclick="switchTab('page-transaksi')" id="tab-transaksi" class="tab-btn px-4 py-2 rounded-md font-semibold text-gray-600 hover:bg-gray-100 transition whitespace-nowrap">2. Transaksi</button>
                 <button onclick="switchTab('page-pesanan')" id="tab-pesanan" class="tab-btn px-4 py-2 rounded-md font-semibold text-gray-600 hover:bg-gray-100 transition whitespace-nowrap">3. Data Pesanan</button>
                 <button onclick="switchTab('page-dashboard')" id="tab-dashboard" class="tab-btn px-4 py-2 rounded-md font-semibold text-gray-600 hover:bg-gray-100 transition whitespace-nowrap">4. Dashboard</button>
             </div>
+            
+            <!-- TOMBOL BLUETOOTH BARU -->
+            <button id="btn-bt-connect" onclick="connectBluetooth()" class="ml-2 flex items-center gap-1 px-3 py-2 text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-md shadow-sm transition whitespace-nowrap">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6.68 8.06l7.32-5.06v20l-7.32-5.06M6.68 8.06L14 12l-7.32 3.94"></path></svg>
+                <span id="bt-status-text" class="hidden sm:inline">Printer</span>
+            </button>
         </div>
     </nav>
 
@@ -280,13 +286,18 @@
 
                 </div> <!-- End of receipt-container -->
 
-                <!-- Tombol Aksi (Hanya tampil di layar, disembunyikan saat print) -->
+                <!-- Tombol Aksi -->
                 <div class="no-print grid grid-cols-1 md:grid-cols-2 gap-4 mt-8 border-t border-gray-100 pt-6">
                     <button onclick="kirimWhatsApp()" class="w-full bg-[#25D366] hover:bg-[#128C7E] text-white font-bold py-3 px-4 rounded-lg transition shadow flex justify-center items-center gap-2">
                         Kirim ke WhatsApp
                     </button>
-                    <button onclick="cetakStruk()" class="w-full bg-gray-800 hover:bg-gray-900 text-white font-bold py-3 px-4 rounded-lg transition shadow flex justify-center items-center gap-2">
-                        Cetak Struk Fisik
+                    <!-- TOMBOL THERMAL -->
+                    <button onclick="cetakStrukThermal()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition shadow flex justify-center items-center gap-2">
+                        🖨️ Cetak Printer Thermal
+                    </button>
+                    <!-- TOMBOL PDF/A4 -->
+                    <button onclick="cetakStrukA4()" class="w-full bg-gray-800 hover:bg-gray-900 text-white font-bold py-3 px-4 rounded-lg transition shadow flex justify-center items-center gap-2">
+                        📄 Cetak PDF / A4
                     </button>
                     <button onclick="editPesanan()" class="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 px-4 rounded-lg transition shadow flex justify-center items-center gap-2">
                         Ubah Pesanan
@@ -298,7 +309,6 @@
                         Buat Transaksi Baru
                     </button>
                 </div>
-
             </div>
         </section>
 <!-- HALAMAN 4: DASHBOARD -->
