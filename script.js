@@ -984,12 +984,11 @@ async function cetakStrukThermal() {
         // HEADER
         let receiptText = 
             init + 
-            center + boldOn + bigFont + "TOKO KAMI" + normalFont + boldOff + "\n" +
-            "0812-3456-7890 (WA)\n" +
-            "Jl. Contoh Alamat No. 123\n" +
+            center + boldOn + bigFont + "DAPOER UMIK" + normalFont + boldOff + "\n" +
+            "0813-5743-2595 (WA)\n" +
+            "Ds. Jogodalu, Kec. Benjeng - Gresik\n" +
             "--------------------------------\n" +
             left + 
-            `Tgl : ${tx.tanggal}\n` +
             `Plg : ${tx.nama}\n` +
             `WA  : ${tx.wa}\n` +
             "--------------------------------\n";
