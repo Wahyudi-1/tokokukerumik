@@ -1,5 +1,5 @@
 // --- KONFIGURASI URL APPS SCRIPT ---
-// URL ini menggunakan deployment terbaru Anda
+// PENTING: Ganti URL di bawah ini dengan URL Web App (Exec) terbaru Anda!
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzX_vVW7xQFa1PkDqSPl9UFgUEZMMiisd12q8NNVDSEhdeXBN90y9vkDb0D49jwuhsxyQ/exec';
 
 // --- STATE APLIKASI ---
@@ -13,6 +13,9 @@ let editingTxId = null;
 // --- STATE DASHBOARD ---
 let allSoldItems = []; 
 let chartJenisBarang, chartTopProduk; 
+let selectedJenis = [];
+let selectedUkuran = [];
+let uniqueCustomers = []; 
 
 // --- INISIALISASI ---
 window.onload = () => {
@@ -584,7 +587,34 @@ function resetSemua() {
     switchTab('page-transaksi');
 }
 
-// --- HALAMAN 4: FUNGSI DASHBOARD ---
+// =========================================================================
+// --- HALAMAN 4: FUNGSI DASHBOARD (DENGAN MULTI-SELECT & AUTOCOMPLETE) ---
+// =========================================================================
+
+// Menutup dropdown jika user klik di luar area
+document.addEventListener('click', function(event) {
+    const isClickInsideJenis = event.target.closest('#dropdown-jenis-content') || event.target.closest('button[onclick*="dropdown-jenis-content"]');
+    const isClickInsideUkuran = event.target.closest('#dropdown-ukuran-content') || event.target.closest('button[onclick*="dropdown-ukuran-content"]');
+    const isClickInsidePelanggan = event.target.closest('#autocomplete-pelanggan') || event.target.closest('#filter-pelanggan');
+
+    if (!isClickInsideJenis) document.getElementById('dropdown-jenis-content')?.classList.add('hidden');
+    if (!isClickInsideUkuran) document.getElementById('dropdown-ukuran-content')?.classList.add('hidden');
+    if (!isClickInsidePelanggan) document.getElementById('autocomplete-pelanggan')?.classList.add('hidden');
+});
+
+// Fungsi buka/tutup dropdown checkbox
+function toggleDropdown(id) {
+    const dropdown = document.getElementById(id);
+    if (dropdown.classList.contains('hidden')) {
+        // Tutup yang lain dulu
+        document.getElementById('dropdown-jenis-content').classList.add('hidden');
+        document.getElementById('dropdown-ukuran-content').classList.add('hidden');
+        document.getElementById('autocomplete-pelanggan').classList.add('hidden');
+        dropdown.classList.remove('hidden');
+    } else {
+        dropdown.classList.add('hidden');
+    }
+}
 
 async function loadDashboardData() {
     toggleLoading(true, "Mengambil data dashboard...");
@@ -609,63 +639,140 @@ async function loadDashboardData() {
 }
 
 function populateDashboardFilters() {
-    const jenisSet = new Set(allSoldItems.map(item => item.jenis));
-    const ukuranSet = new Set(allSoldItems.map(item => item.ukuran));
+    // 1. Ambil data unik
+    const jenisSet = [...new Set(allSoldItems.map(item => item.jenis))].sort();
+    const ukuranSet = [...new Set(allSoldItems.map(item => item.ukuran))].sort();
+    uniqueCustomers = [...new Set(allSoldItems.map(item => item.pelanggan))].sort(); // Simpan nama unik
 
-    const filterJenis = document.getElementById('filter-jenis');
-    const filterUkuran = document.getElementById('filter-ukuran');
+    // 2. Render Checkbox Jenis
+    const listJenis = document.getElementById('list-checkbox-jenis');
+    listJenis.innerHTML = jenisSet.map(jenis => `
+        <label class="flex items-center p-2 hover:bg-blue-50 cursor-pointer rounded">
+            <input type="checkbox" value="${jenis}" onchange="updateSelectedJenis(this)" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
+            <span class="ml-2 text-sm font-medium text-gray-700">${jenis}</span>
+        </label>
+    `).join('');
 
-    filterJenis.innerHTML = '<option value="">Semua Jenis</option>';
-    jenisSet.forEach(jenis => filterJenis.innerHTML += `<option value="${jenis}">${jenis}</option>`);
+    // 3. Render Checkbox Ukuran
+    const listUkuran = document.getElementById('list-checkbox-ukuran');
+    listUkuran.innerHTML = ukuranSet.map(ukuran => `
+        <label class="flex items-center p-2 hover:bg-blue-50 cursor-pointer rounded">
+            <input type="checkbox" value="${ukuran}" onchange="updateSelectedUkuran(this)" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
+            <span class="ml-2 text-sm font-medium text-gray-700">${ukuran}</span>
+        </label>
+    `).join('');
+}
 
-    filterUkuran.innerHTML = '<option value="">Semua Ukuran</option>';
-    ukuranSet.forEach(ukuran => filterUkuran.innerHTML += `<option value="${ukuran}">${ukuran}</option>`);
+// Handler saat checkbox ditekan
+function updateSelectedJenis(checkbox) {
+    if (checkbox.checked) selectedJenis.push(checkbox.value);
+    else selectedJenis = selectedJenis.filter(v => v !== checkbox.value);
+    
+    // Update teks tombol
+    const label = document.getElementById('label-jenis');
+    if (selectedJenis.length === 0) label.innerText = "Semua Jenis";
+    else if (selectedJenis.length === 1) label.innerText = selectedJenis[0];
+    else label.innerText = `${selectedJenis.length} Jenis Dipilih`;
+
+    applyDashboardFilters();
+}
+
+function updateSelectedUkuran(checkbox) {
+    if (checkbox.checked) selectedUkuran.push(checkbox.value);
+    else selectedUkuran = selectedUkuran.filter(v => v !== checkbox.value);
+    
+    // Update teks tombol
+    const label = document.getElementById('label-ukuran');
+    if (selectedUkuran.length === 0) label.innerText = "Semua Ukuran";
+    else if (selectedUkuran.length === 1) label.innerText = selectedUkuran[0];
+    else label.innerText = `${selectedUkuran.length} Ukuran Dipilih`;
+
+    applyDashboardFilters();
+}
+
+// Handler untuk Autocomplete Nama Pelanggan
+function handleCustomerSearch(event) {
+    const inputVal = event.target.value.toLowerCase();
+    const autocompleteDiv = document.getElementById('autocomplete-pelanggan');
+    const ul = document.getElementById('list-saran-pelanggan');
+    
+    // Cari kecocokan nama
+    const suggestions = uniqueCustomers.filter(name => name.toLowerCase().includes(inputVal));
+    
+    if (suggestions.length === 0) {
+        autocompleteDiv.classList.add('hidden');
+        applyDashboardFilters(); // Tetap filter meskipun tidak ada saran
+        return;
+    }
+
+    // Tampilkan saran
+    ul.innerHTML = suggestions.map(name => `
+        <li onclick="selectCustomer('${name.replace(/'/g, "\\'")}')" class="px-4 py-2 hover:bg-blue-50 cursor-pointer text-gray-700 border-b border-gray-100 last:border-0">
+            ${name}
+        </li>
+    `).join('');
+    
+    autocompleteDiv.classList.remove('hidden');
+    applyDashboardFilters(); // Filter data saat sedang mengetik
+}
+
+// Saat saran nama diklik
+function selectCustomer(name) {
+    document.getElementById('filter-pelanggan').value = name;
+    document.getElementById('autocomplete-pelanggan').classList.add('hidden');
+    applyDashboardFilters();
 }
 
 function applyDashboardFilters() {
-    const jenisValue = document.getElementById('filter-jenis').value;
-    const ukuranValue = document.getElementById('filter-ukuran').value;
     const pelangganValue = document.getElementById('filter-pelanggan').value.toLowerCase();
 
+    // Logika Filter (Menggunakan Array includes)
     let filteredItems = allSoldItems.filter(item => {
-        const jenisMatch = !jenisValue || item.jenis === jenisValue;
-        const ukuranMatch = !ukuranValue || item.ukuran === ukuranValue;
+        const jenisMatch = selectedJenis.length === 0 || selectedJenis.includes(item.jenis);
+        const ukuranMatch = selectedUkuran.length === 0 || selectedUkuran.includes(item.ukuran);
         const pelangganMatch = !pelangganValue || item.pelanggan.toLowerCase().includes(pelangganValue);
+        
         return jenisMatch && ukuranMatch && pelangganMatch;
     });
 
+    // PROSES AGREGASI 
     const summary = {
-        totalPendapatan: 0,
-        totalBarang: 0,
-        produkTerlaris: '-',
-        penjualanPerJenis: {},
-        penjualanPerProduk: {},
-        transaksi: new Set() 
+        totalPendapatan: 0, totalBarang: 0, produkTerlaris: '-',
+        penjualanPerJenis: {}, penjualanPerProduk: {}, transaksi: new Set() 
     };
 
     filteredItems.forEach(item => {
         summary.totalPendapatan += item.subtotal;
         summary.totalBarang += item.jml;
-        
         summary.penjualanPerJenis[item.jenis] = (summary.penjualanPerJenis[item.jenis] || 0) + item.subtotal;
         summary.penjualanPerProduk[item.nama] = (summary.penjualanPerProduk[item.nama] || 0) + item.jml;
         summary.transaksi.add(item.pelanggan);
     });
     
     summary.totalTransaksi = summary.transaksi.size;
-
     const sortedProduk = Object.entries(summary.penjualanPerProduk).sort((a, b) => b[1] - a[1]);
-    if (sortedProduk.length > 0) {
-        summary.produkTerlaris = sortedProduk[0][0];
-    }
+    if (sortedProduk.length > 0) summary.produkTerlaris = sortedProduk[0][0];
     
     renderDashboard(summary);
 }
 
 function resetDashboardFilters() {
-    document.getElementById('filter-jenis').value = '';
-    document.getElementById('filter-ukuran').value = '';
+    // 1. Kosongkan array state
+    selectedJenis = [];
+    selectedUkuran = [];
+    
+    // 2. Uncheck semua kotak di tampilan (DOM)
+    document.querySelectorAll('#list-checkbox-jenis input[type="checkbox"]').forEach(cb => cb.checked = false);
+    document.querySelectorAll('#list-checkbox-ukuran input[type="checkbox"]').forEach(cb => cb.checked = false);
+    
+    // 3. Kembalikan teks tombol dan input
+    document.getElementById('label-jenis').innerText = "Semua Jenis";
+    document.getElementById('label-ukuran').innerText = "Semua Ukuran";
     document.getElementById('filter-pelanggan').value = '';
+    
+    // 4. Sembunyikan dropdown autocomplete
+    document.getElementById('autocomplete-pelanggan').classList.add('hidden');
+
     applyDashboardFilters();
 }
 
@@ -680,16 +787,13 @@ function renderDashboard(summary) {
 }
 
 function getRandomColor() {
-    const r = Math.floor(Math.random() * 200);
-    const g = Math.floor(Math.random() * 200);
-    const b = Math.floor(Math.random() * 200);
+    const r = Math.floor(Math.random() * 200); const g = Math.floor(Math.random() * 200); const b = Math.floor(Math.random() * 200);
     return `rgba(${r}, ${g}, ${b}, 0.7)`;
 }
 
 function renderChartJenis(data) {
     const ctx = document.getElementById('chart-jenis-barang').getContext('2d');
-    const labels = Object.keys(data);
-    const values = Object.values(data);
+    const labels = Object.keys(data); const values = Object.values(data);
     const colors = labels.map(() => getRandomColor());
 
     if (chartJenisBarang) {
@@ -700,16 +804,7 @@ function renderChartJenis(data) {
     } else {
         chartJenisBarang = new Chart(ctx, {
             type: 'doughnut',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Pendapatan',
-                    data: values,
-                    backgroundColor: colors,
-                    borderColor: '#fff',
-                    borderWidth: 2
-                }]
-            },
+            data: { labels: labels, datasets: [{ label: 'Pendapatan', data: values, backgroundColor: colors, borderColor: '#fff', borderWidth: 2 }] },
             options: { responsive: true, maintainAspectRatio: true }
         });
     }
@@ -718,9 +813,7 @@ function renderChartJenis(data) {
 function renderChartTopProduk(data) {
     const ctx = document.getElementById('chart-top-produk').getContext('2d');
     const sortedProduk = Object.entries(data).sort((a, b) => b[1] - a[1]).slice(0, 5);
-    
-    const labels = sortedProduk.map(item => item[0]);
-    const values = sortedProduk.map(item => item[1]);
+    const labels = sortedProduk.map(item => item[0]); const values = sortedProduk.map(item => item[1]);
     const colors = labels.map(() => getRandomColor());
 
     if (chartTopProduk) {
@@ -731,21 +824,8 @@ function renderChartTopProduk(data) {
     } else {
         chartTopProduk = new Chart(ctx, {
             type: 'bar',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Jumlah Terjual',
-                    data: values,
-                    backgroundColor: colors,
-                    borderColor: colors.map(c => c.replace('0.7', '1')),
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                indexAxis: 'y', 
-                responsive: true,
-                plugins: { legend: { display: false } }
-            }
+            data: { labels: labels, datasets: [{ label: 'Jumlah Terjual', data: values, backgroundColor: colors, borderColor: colors.map(c => c.replace('0.7', '1')), borderWidth: 1 }] },
+            options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } } }
         });
     }
 }
