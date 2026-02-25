@@ -21,21 +21,52 @@
     transition: all 0.3s ease-in; 
 }
 
-/* Menyembunyikan elemen tertentu saat mencetak struk */
+/* (Biarkan CSS animasi toast di bagian atas tetap ada) */
+
+/* =========================================
+   PENGATURAN STRUK THERMAL & A4
+========================================= */
+.receipt-container {
+    width: 100%;
+    max-width: 350px; /* Lebar maksimal untuk ukuran kertas Thermal 80mm */
+    margin: 0 auto;
+    background: white;
+    font-family: 'Courier New', Courier, monospace; /* Font khas struk */
+    color: #000;
+    font-size: 14px;
+}
+
+.receipt-container hr {
+    border-top: 1px dashed #000;
+    margin: 8px 0;
+}
+
 @media print {
-    .no-print { 
-        display: none !important; 
+    /* 1. Sembunyikan SEMUA elemen di body */
+    body * {
+        visibility: hidden;
     }
-    
-    body { 
-        background-color: white; 
+
+    /* 2. Tampilkan HANYA kontainer struk dan isinya */
+    #area-struk, #area-struk * {
+        visibility: visible;
     }
-    
-    .print-area { 
-        box-shadow: none !important; 
-        margin: 0 !important; 
-        width: 100% !important; 
-        padding: 0 !important;
+
+    /* 3. Posisikan struk di pojok kiri atas kertas */
+    #area-struk {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%; /* Biarkan printer yang mengatur lebar kertas */
+        margin: 0;
+        padding: 0;
+        box-shadow: none !important;
+        border: none !important;
+    }
+
+    /* 4. Sembunyikan tombol-tombol saat print */
+    .no-print {
+        display: none !important;
     }
 }
 
