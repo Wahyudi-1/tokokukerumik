@@ -465,22 +465,26 @@ function tampilkanStruk(tx) {
     document.getElementById('rekap-total-item').innerText = tx.totalItem;
     document.getElementById('rekap-total-harga').innerText = tx.totalHarga.toLocaleString('id-ID');
 
-    const tbody = document.getElementById('tabel-rekap-body');
+    const containerItems = document.getElementById('tabel-rekap-body');
     let html = '';
-    tx.items.forEach((item, index) => {
-        // Atribut data-label ditambahkan untuk tampilan Mobile
+    
+    // Render item dengan gaya Thermal (Nama di atas, Harga di bawah)
+    tx.items.forEach((item) => {
         html += `
-            <tr class="border-b border-gray-100 md:border-b-0 last:border-0">
-                <td data-label="Barang & Ukuran" class="py-2">
-                    <div class="font-semibold">${item.nama}</div>
-                    <div class="text-xs text-gray-500">Uk: ${item.ukuran} | @Rp ${item.harga.toLocaleString('id-ID')}</div>
-                </td>
-                <td data-label="Jml" class="py-2 align-top text-center font-medium">${item.jml}</td>
-                <td data-label="Subtotal" class="py-2 align-top text-right font-semibold text-gray-800">Rp ${item.subtotal.toLocaleString('id-ID')}</td>
-            </tr>
+            <div class="mb-2">
+                <!-- Baris Atas: Nama Barang & Ukuran -->
+                <div class="font-bold">${item.nama} (${item.ukuran})</div>
+                
+                <!-- Baris Bawah: Qty x Harga = Subtotal (Kanan Kiri) -->
+                <div class="flex justify-between text-sm">
+                    <span>${item.jml} x ${item.harga.toLocaleString('id-ID')}</span>
+                    <span>${item.subtotal.toLocaleString('id-ID')}</span>
+                </div>
+            </div>
         `;
     });
-    tbody.innerHTML = html;
+    
+    containerItems.innerHTML = html;
     
     document.getElementById('dropdown-riwayat').value = tx.id;
 }
