@@ -523,10 +523,6 @@ function kirimWhatsApp() {
     window.open(url, '_blank');
 }
 
-function cetakStruk() {
-    window.print();
-}
-
 function editPesanan() {
     if(!currentViewedTx) return showToast("Tidak ada data pesanan yang dipilih!", "error");
     
@@ -883,4 +879,172 @@ function renderChartTopProduk(data) {
             options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } } }
         });
     }
+}
+
+// =========================================================================
+// --- SISTEM CETAK PRINTER THERMAL (BLUETOOTH WEB API) ---
+// =========================================================================
+
+// Variabel State Printer
+let printerDevice = null;
+let printerCharacteristic = null;
+let isPrinting = false;
+
+// 1. Fungsi Koneksi Bluetooth
+async function connectBluetooth() {
+    if (!navigator.bluetooth) { 
+        alert("Browser/Perangkat ini tidak mendukung koneksi Bluetooth Web API. Gunakan Chrome di Android/PC."); 
+        return; 
+    }
+    
+    const btnBt = document.getElementById('btn-bt-connect');
+    const txtBt = document.getElementById('bt-status-text');
+
+    try {
+        if (printerDevice && printerDevice.gatt.connected) {
+            printerDevice.gatt.disconnect();
+        }
+        
+        // Meminta user memilih printer Bluetooth (Standar service printer generic)
+        printerDevice = await navigator.bluetooth.requestDevice({ 
+            filters: [{ services: ['000018f0-0000-1000-8000-00805f9b34fb'] }] 
+        });
+        
+        printerDevice.addEventListener('gattserverdisconnected', onDisconnected);
+        const server = await printerDevice.gatt.connect();
+        
+        await new Promise(r => setTimeout(r, 500)); // Jeda sedikit agar stabil
+        
+        const service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
+        printerCharacteristic = await service.getCharacteristic('00002af1-0000-1000-8000-00805f9b34fb');
+        
+        // Update UI Tombol
+        btnBt.classList.remove('bg-gray-100', 'text-gray-600');
+        btnBt.classList.add('bg-green-600', 'text-white', 'border-green-700');
+        txtBt.innerText = "Printer Ready";
+        showToast("Printer Thermal Berhasil Terhubung!");
+        
+    } catch (e) { 
+        console.error(e);
+        if (e.name !== 'NotFoundError') { // Abaikan jika user sekadar klik cancel
+            alert("Gagal Konek: " + e.message); 
+        }
+        onDisconnected(); 
+    }
+}
+
+function onDisconnected() {
+    const btnBt = document.getElementById('btn-bt-connect');
+    const txtBt = document.getElementById('bt-status-text');
+    
+    btnBt.classList.remove('bg-green-600', 'text-white', 'border-green-700');
+    btnBt.classList.add('bg-gray-100', 'text-gray-600');
+    txtBt.innerText = "Printer";
+    printerCharacteristic = null;
+}
+
+function strToBytes(str) {
+    const bytes = [];
+    for (let i = 0; i < str.length; i++) {
+        let code = str.charCodeAt(i);
+        if (code > 255) code = 63; // Replace karakter aneh dengan '?'
+        bytes.push(code);
+    }
+    return new Uint8Array(bytes);
+}
+
+// 2. Fungsi Cetak Format ESC/POS
+async function cetakStrukThermal() {
+    if (!currentViewedTx) return showToast("Tidak ada pesanan yang dipilih!", "error");
+    
+    if (!printerCharacteristic) {
+        const confirmConnect = confirm("Printer belum terhubung. Hubungkan Bluetooth sekarang?");
+        if (confirmConnect) {
+            await connectBluetooth();
+            if (!printerCharacteristic) return; // Batal jika gagal konek
+        } else {
+            return;
+        }
+    }
+
+    if (isPrinting) return showToast("Sedang mencetak, mohon tunggu...", "info");
+    isPrinting = true;
+    showToast("Mengirim data ke printer...", "info");
+
+    try {
+        const tx = currentViewedTx;
+        
+        // Perintah ESC/POS
+        const ESC = '\u001B'; const GS = '\u001D';
+        const center = ESC + 'a' + '\u0001'; const left = ESC + 'a' + '\u0000';
+        const boldOn = ESC + 'E' + '\u0001'; const boldOff = ESC + 'E' + '\u0000';
+        const bigFont = GS + '!' + '\u0011'; const normalFont = GS + '!' + '\u0000';
+        const init = ESC + '@';
+
+        // HEADER
+        let receiptText = 
+            init + 
+            center + boldOn + bigFont + "TOKO KAMI" + normalFont + boldOff + "\n" +
+            "0812-3456-7890 (WA)\n" +
+            "Jl. Contoh Alamat No. 123\n" +
+            "--------------------------------\n" +
+            left + 
+            `Tgl : ${tx.tanggal}\n` +
+            `Plg : ${tx.nama}\n` +
+            `WA  : ${tx.wa}\n` +
+            "--------------------------------\n";
+
+        // ITEMS
+        tx.items.forEach((item) => {
+            // Baris 1: Nama Barang (Ukuran)
+            receiptText += `${boldOn}${item.nama} (${item.ukuran})${boldOff}\n`;
+            
+            // Baris 2: Qty x Harga = Subtotal (Manual padding spasi)
+            let detailStr = `  ${item.jml} x Rp ${item.harga.toLocaleString('id-ID')}`;
+            let subtotalStr = `Rp ${item.subtotal.toLocaleString('id-ID')}`;
+            
+            // Menghitung spasi agar subtotal rata kanan (asumsi 32 karakter per baris utk 58mm)
+            let spaceCount = 32 - (detailStr.length + subtotalStr.length);
+            if (spaceCount < 1) spaceCount = 1; 
+            
+            receiptText += detailStr + " ".repeat(spaceCount) + subtotalStr + "\n";
+        });
+
+        // FOOTER & TOTAL
+        receiptText += 
+            "--------------------------------\n" +
+            `Total Item : ${tx.totalItem}\n` +
+            boldOn + 
+            `TOTAL BAYAR: Rp ${tx.totalHarga.toLocaleString('id-ID')}\n` +
+            boldOff +
+            "--------------------------------\n" +
+            center + "Barang yang sudah dibeli\n" +
+            "tidak dapat ditukar/dikembalikan\n" +
+            "Terima Kasih, Semoga Berkah!\n\n\n\n"; // \n ekstra untuk feed kertas
+
+        // Encode ke Bytes
+        let encodedData = typeof TextEncoder !== 'undefined' ? new TextEncoder().encode(receiptText) : strToBytes(receiptText);
+        
+        // Kirim bergiliran (Chunking) untuk mencegah buffer penuh di printer kecil
+        const maxChunk = 50; 
+        for (let i = 0; i < encodedData.length; i += maxChunk) {
+            const chunk = encodedData.slice(i, i + maxChunk);
+            await printerCharacteristic.writeValue(chunk);
+            await new Promise(resolve => setTimeout(resolve, 50)); // Jeda 50ms per chunk
+        }
+
+        showToast("Selesai mencetak!");
+
+    } catch (error) { 
+        console.error(error);
+        showToast("Gagal mencetak: Cek koneksi printer.", "error"); 
+        onDisconnected();
+    } finally {
+        isPrinting = false;
+    }
+}
+
+// 3. Ganti Fungsi cetakStruk() Lama menjadi ini
+function cetakStrukA4() {
+    window.print();
 }
