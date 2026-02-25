@@ -588,7 +588,7 @@ function resetSemua() {
 }
 
 // =========================================================================
-// --- HALAMAN 4: FUNGSI DASHBOARD (DENGAN MULTI-SELECT & AUTOCOMPLETE) ---
+// --- HALAMAN 4: FUNGSI DASHBOARD (DENGAN SELECT ALL) ---
 // =========================================================================
 
 // Menutup dropdown jika user klik di luar area
@@ -642,38 +642,84 @@ function populateDashboardFilters() {
     // 1. Ambil data unik
     const jenisSet = [...new Set(allSoldItems.map(item => item.jenis))].sort();
     const ukuranSet = [...new Set(allSoldItems.map(item => item.ukuran))].sort();
-    uniqueCustomers = [...new Set(allSoldItems.map(item => item.pelanggan))].sort(); // Simpan nama unik
+    uniqueCustomers = [...new Set(allSoldItems.map(item => item.pelanggan))].sort();
 
-    // 2. Render Checkbox Jenis
+    // 2. Render Checkbox Jenis (Dengan opsi Select All)
     const listJenis = document.getElementById('list-checkbox-jenis');
-    listJenis.innerHTML = jenisSet.map(jenis => `
+    let htmlJenis = `
+        <label class="flex items-center p-2 hover:bg-gray-100 cursor-pointer rounded border-b border-gray-200">
+            <input type="checkbox" id="selectAllJenis" onchange="toggleAllJenis(this)" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
+            <span class="ml-2 text-sm font-bold text-gray-800">Centang Semua</span>
+        </label>
+    `;
+    htmlJenis += jenisSet.map(jenis => `
         <label class="flex items-center p-2 hover:bg-blue-50 cursor-pointer rounded">
-            <input type="checkbox" value="${jenis}" onchange="updateSelectedJenis(this)" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
+            <input type="checkbox" value="${jenis}" onchange="updateSelectedJenis(this)" class="chk-jenis w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
             <span class="ml-2 text-sm font-medium text-gray-700">${jenis}</span>
         </label>
     `).join('');
+    listJenis.innerHTML = htmlJenis;
 
-    // 3. Render Checkbox Ukuran
+    // 3. Render Checkbox Ukuran (Dengan opsi Select All)
     const listUkuran = document.getElementById('list-checkbox-ukuran');
-    listUkuran.innerHTML = ukuranSet.map(ukuran => `
+    let htmlUkuran = `
+        <label class="flex items-center p-2 hover:bg-gray-100 cursor-pointer rounded border-b border-gray-200">
+            <input type="checkbox" id="selectAllUkuran" onchange="toggleAllUkuran(this)" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
+            <span class="ml-2 text-sm font-bold text-gray-800">Centang Semua</span>
+        </label>
+    `;
+    htmlUkuran += ukuranSet.map(ukuran => `
         <label class="flex items-center p-2 hover:bg-blue-50 cursor-pointer rounded">
-            <input type="checkbox" value="${ukuran}" onchange="updateSelectedUkuran(this)" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
+            <input type="checkbox" value="${ukuran}" onchange="updateSelectedUkuran(this)" class="chk-ukuran w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
             <span class="ml-2 text-sm font-medium text-gray-700">${ukuran}</span>
         </label>
     `).join('');
+    listUkuran.innerHTML = htmlUkuran;
 }
 
-// Handler saat checkbox ditekan
+// Handler Centang Semua Jenis
+function toggleAllJenis(selectAllCheckbox) {
+    const checkboxes = document.querySelectorAll('.chk-jenis');
+    selectedJenis = [];
+    
+    checkboxes.forEach(cb => {
+        cb.checked = selectAllCheckbox.checked;
+        if (selectAllCheckbox.checked) {
+            selectedJenis.push(cb.value);
+        }
+    });
+    
+    updateLabelJenis();
+    applyDashboardFilters();
+}
+
+// Handler Centang Semua Ukuran
+function toggleAllUkuran(selectAllCheckbox) {
+    const checkboxes = document.querySelectorAll('.chk-ukuran');
+    selectedUkuran = [];
+    
+    checkboxes.forEach(cb => {
+        cb.checked = selectAllCheckbox.checked;
+        if (selectAllCheckbox.checked) {
+            selectedUkuran.push(cb.value);
+        }
+    });
+    
+    updateLabelUkuran();
+    applyDashboardFilters();
+}
+
+// Handler saat checkbox individual ditekan
 function updateSelectedJenis(checkbox) {
     if (checkbox.checked) selectedJenis.push(checkbox.value);
     else selectedJenis = selectedJenis.filter(v => v !== checkbox.value);
     
-    // Update teks tombol
-    const label = document.getElementById('label-jenis');
-    if (selectedJenis.length === 0) label.innerText = "Semua Jenis";
-    else if (selectedJenis.length === 1) label.innerText = selectedJenis[0];
-    else label.innerText = `${selectedJenis.length} Jenis Dipilih`;
+    // Uncheck 'Select All' jika ada yang di-uncheck
+    const selectAllCb = document.getElementById('selectAllJenis');
+    const allCheckboxes = document.querySelectorAll('.chk-jenis');
+    selectAllCb.checked = (selectedJenis.length === allCheckboxes.length);
 
+    updateLabelJenis();
     applyDashboardFilters();
 }
 
@@ -681,13 +727,28 @@ function updateSelectedUkuran(checkbox) {
     if (checkbox.checked) selectedUkuran.push(checkbox.value);
     else selectedUkuran = selectedUkuran.filter(v => v !== checkbox.value);
     
-    // Update teks tombol
+    // Uncheck 'Select All' jika ada yang di-uncheck
+    const selectAllCb = document.getElementById('selectAllUkuran');
+    const allCheckboxes = document.querySelectorAll('.chk-ukuran');
+    selectAllCb.checked = (selectedUkuran.length === allCheckboxes.length);
+
+    updateLabelUkuran();
+    applyDashboardFilters();
+}
+
+// Fungsi bantu update label tombol
+function updateLabelJenis() {
+    const label = document.getElementById('label-jenis');
+    if (selectedJenis.length === 0) label.innerText = "Semua Jenis";
+    else if (selectedJenis.length === 1) label.innerText = selectedJenis[0];
+    else label.innerText = `${selectedJenis.length} Jenis Dipilih`;
+}
+
+function updateLabelUkuran() {
     const label = document.getElementById('label-ukuran');
     if (selectedUkuran.length === 0) label.innerText = "Semua Ukuran";
     else if (selectedUkuran.length === 1) label.innerText = selectedUkuran[0];
     else label.innerText = `${selectedUkuran.length} Ukuran Dipilih`;
-
-    applyDashboardFilters();
 }
 
 // Handler untuk Autocomplete Nama Pelanggan
@@ -696,16 +757,14 @@ function handleCustomerSearch(event) {
     const autocompleteDiv = document.getElementById('autocomplete-pelanggan');
     const ul = document.getElementById('list-saran-pelanggan');
     
-    // Cari kecocokan nama
     const suggestions = uniqueCustomers.filter(name => name.toLowerCase().includes(inputVal));
     
     if (suggestions.length === 0) {
         autocompleteDiv.classList.add('hidden');
-        applyDashboardFilters(); // Tetap filter meskipun tidak ada saran
+        applyDashboardFilters(); 
         return;
     }
 
-    // Tampilkan saran
     ul.innerHTML = suggestions.map(name => `
         <li onclick="selectCustomer('${name.replace(/'/g, "\\'")}')" class="px-4 py-2 hover:bg-blue-50 cursor-pointer text-gray-700 border-b border-gray-100 last:border-0">
             ${name}
@@ -713,10 +772,9 @@ function handleCustomerSearch(event) {
     `).join('');
     
     autocompleteDiv.classList.remove('hidden');
-    applyDashboardFilters(); // Filter data saat sedang mengetik
+    applyDashboardFilters(); 
 }
 
-// Saat saran nama diklik
 function selectCustomer(name) {
     document.getElementById('filter-pelanggan').value = name;
     document.getElementById('autocomplete-pelanggan').classList.add('hidden');
@@ -726,7 +784,6 @@ function selectCustomer(name) {
 function applyDashboardFilters() {
     const pelangganValue = document.getElementById('filter-pelanggan').value.toLowerCase();
 
-    // Logika Filter (Menggunakan Array includes)
     let filteredItems = allSoldItems.filter(item => {
         const jenisMatch = selectedJenis.length === 0 || selectedJenis.includes(item.jenis);
         const ukuranMatch = selectedUkuran.length === 0 || selectedUkuran.includes(item.ukuran);
@@ -735,7 +792,6 @@ function applyDashboardFilters() {
         return jenisMatch && ukuranMatch && pelangganMatch;
     });
 
-    // PROSES AGREGASI 
     const summary = {
         totalPendapatan: 0, totalBarang: 0, produkTerlaris: '-',
         penjualanPerJenis: {}, penjualanPerProduk: {}, transaksi: new Set() 
@@ -757,20 +813,15 @@ function applyDashboardFilters() {
 }
 
 function resetDashboardFilters() {
-    // 1. Kosongkan array state
     selectedJenis = [];
     selectedUkuran = [];
     
-    // 2. Uncheck semua kotak di tampilan (DOM)
     document.querySelectorAll('#list-checkbox-jenis input[type="checkbox"]').forEach(cb => cb.checked = false);
     document.querySelectorAll('#list-checkbox-ukuran input[type="checkbox"]').forEach(cb => cb.checked = false);
     
-    // 3. Kembalikan teks tombol dan input
-    document.getElementById('label-jenis').innerText = "Semua Jenis";
-    document.getElementById('label-ukuran').innerText = "Semua Ukuran";
+    updateLabelJenis();
+    updateLabelUkuran();
     document.getElementById('filter-pelanggan').value = '';
-    
-    // 4. Sembunyikan dropdown autocomplete
     document.getElementById('autocomplete-pelanggan').classList.add('hidden');
 
     applyDashboardFilters();
